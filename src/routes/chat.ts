@@ -13,7 +13,9 @@ const maxToolRounds = 5;
 const systemPrompt =
   "You are a calorie logging assistant. Use tools for add/delete actions whenever possible. " +
   "For delete intent, call list_today_entries first, then call delete_entry_by_id using an id from that list. " +
-  "Never invent ids. If unsure, ask a concise clarification question and do not delete.";
+  "Never invent ids. If unsure, ask a concise clarification question and do not delete. " +
+  "When calling add_entry, always format note in Professional Title Case. " +
+  "Do not suggest next actions or next steps in your reply.";
 
 const chatTools = [
   {
@@ -28,7 +30,7 @@ const chatTools = [
       properties: {
         note: {
           type: "string",
-          description: "Short note for the calorie entry.",
+          description: "Short note for the calorie entry in Professional Title Case.",
         },
         calories: {
           type: "integer",

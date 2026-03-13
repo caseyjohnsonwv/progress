@@ -69,6 +69,39 @@ h2 {
   gap: 0.75rem;
 }
 
+.progress-container {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.progress-track {
+  position: relative;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.62);
+  overflow: visible;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-teal);
+  border-radius: 999px;
+}
+
+.progress-overflow {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  height: 100%;
+  background: var(--color-coral);
+  border-radius: 0 999px 999px 0;
+}
+
+.stats p {
+  margin: 0;
+}
+
 input,
 button {
   font: inherit;
@@ -99,50 +132,59 @@ button.danger {
   background: var(--button-danger);
 }
 
-.chat-log {
-  display: grid;
-  gap: 0.6rem;
-  max-height: 260px;
-  overflow-y: auto;
-  padding-right: 0.25rem;
-}
-
-.chat-bubble {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0.65rem 0.75rem;
-  max-width: 92%;
-  display: grid;
-  gap: 0.45rem;
-}
-
-.chat-bubble p {
-  margin: 0;
-}
-
-.chat-bubble.user {
-  justify-self: end;
-  background: rgba(97, 137, 133, 0.22);
-}
-
-.chat-bubble.assistant {
-  justify-self: start;
-  background: rgba(255, 255, 255, 0.48);
-}
-
-.chat-actions {
+.chat-header {
   display: flex;
-  gap: 0.4rem;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
 }
 
-.action-chip {
+.history-badge {
   display: inline-block;
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 0.1rem 0.5rem;
+  padding: 0.15rem 0.55rem;
   font-size: 0.8rem;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
+}
+
+.chat-line {
+  min-height: 44px;
+  width: 100%;
+  max-width: 520px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.48);
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chat-role {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #f8f7f2;
+}
+
+.chat-role.user {
+  background: var(--color-teal);
+}
+
+.chat-role.assistant {
+  background: var(--color-olive);
+}
+
+.chat-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat-form {

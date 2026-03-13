@@ -39,13 +39,45 @@ type ChatResponse = {
 type ChatMessage = {
   role: "user" | "assistant";
   text: string;
-  actions?: ChatAction[];
 };
+
+const CHAT_HISTORY_STORAGE_KEY = "chat_history_v1";
+
+function isChatMessage(value: unknown): value is ChatMessage {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as { role?: unknown; text?: unknown };
+  return (
+    (candidate.role === "user" || candidate.role === "assistant") &&
+    typeof candidate.text === "string"
+  );
+}
+
+function loadChatHistory(): ChatMessage[] {
+  try {
+    const raw =
+      typeof window !== "undefined" ? window.localStorage.getItem(CHAT_HISTORY_STORAGE_KEY) : null;
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.filter(isChatMessage);
+  } catch {
+    return [];
+  }
+}
 
 export default function App() {
   const [summary, setSummary] = useState<DailySummaryResponse | null>(null);
   const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => loadChatHistory());
   const [loading, setLoading] = useState(true);
   const [chatSending, setChatSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +105,15 @@ export default function App() {
   useEffect(() => {
     void loadTodaySummary();
   }, []);
+
+  useEffect(() => {
+    if (chatMessages.length === 0) {
+      window.localStorage.removeItem(CHAT_HISTORY_STORAGE_KEY);
+      return;
+    }
+
+    window.localStorage.setItem(CHAT_HISTORY_STORAGE_KEY, JSON.stringify(chatMessages));
+  }, [chatMessages]);
 
   async function handleChatSubmit(event: FormEvent) {
     event.preventDefault();
@@ -103,7 +144,6 @@ export default function App() {
         {
           role: "assistant",
           text: data.reply,
-          actions: data.actions,
         },
       ]);
     } catch (err) {
@@ -139,6 +179,17 @@ export default function App() {
     setChatError(null);
   }
 
+  const budgetCalories = summary?.budget_calories ?? 0;
+  const consumedCalories = summary?.consumed_calories ?? 0;
+  const basePercent =
+    budgetCalories > 0 ? Math.min(consumedCalories / budgetCalories, 1) * 100 : 0;
+  const overflowPercent =
+    budgetCalories > 0 ? Math.max((consumedCalories - budgetCalories) / budgetCalories, 0) * 100 : 0;
+  const overflowPercentCapped = Math.min(overflowPercent, 150);
+  const progressNow = budgetCalories > 0 ? Math.min(consumedCalories, budgetCalories) : 0;
+  const hasChatHistory = chatMessages.length > 0;
+  const latestChatMessage = hasChatHistory ? chatMessages[chatMessages.length - 1] : null;
+
   return (
     <main className="page">
       <section className="card">
@@ -150,23 +201,23 @@ export default function App() {
         ) : (
           <>
             <section className="panel">
-              <h2>Chat</h2>
-
-              <div className="chat-log">
-                {chatMessages.map((message, index) => (
-                  <div key={`${message.role}-${index}`} className={`chat-bubble ${message.role}`}>
-                    <p>{message.text}</p>
-                    {message.actions && message.actions.length > 0 ? (
-                      <div className="chat-actions">
-                        {message.actions.map((action, actionIndex) => (
-                          <span key={`${action.type}-${actionIndex}`} className="action-chip">
-                            {action.type === "add_entry" ? "Added entry" : "Deleted entry"}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
+              <div className="chat-header">
+                <h2>Chat</h2>
+                {hasChatHistory ? (
+                  <span className="history-badge">History: {chatMessages.length}</span>
+                ) : null}
+              </div>
+              <div className="chat-line" aria-live="polite">
+                {latestChatMessage ? (
+                  <>
+                    <span className={`chat-role ${latestChatMessage.role}`}>
+                      {latestChatMessage.role.toUpperCase()}
+                    </span>
+                    <span className="chat-text">{latestChatMessage.text}</span>
+                  </>
+                ) : (
+                  <span className="chat-text muted">No chat history yet.</span>
+                )}
               </div>
 
               <form onSubmit={(event) => void handleChatSubmit(event)} className="chat-form">
@@ -183,7 +234,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={handleClearChat}
-                  disabled={chatSending || chatMessages.length === 0}
+                  disabled={chatSending || !hasChatHistory}
                 >
                   Clear
                 </button>
@@ -193,6 +244,25 @@ export default function App() {
             <section className="panel">
               <h2>Today</h2>
               <p className="muted">{summary.day}</p>
+              <div className="progress-container">
+                <div
+                  className="progress-track"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={budgetCalories}
+                  aria-valuenow={progressNow}
+                  aria-label="Calories consumed toward daily budget"
+                >
+                  <div className="progress-fill" style={{ width: `${basePercent}%` }} />
+                  {overflowPercentCapped > 0 ? (
+                    <div
+                      className="progress-overflow"
+                      style={{ width: `${overflowPercentCapped}%` }}
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                </div>
+              </div>
               <div className="stats">
                 <p>Budget: {summary.budget_calories}</p>
                 <p>Consumed: {summary.consumed_calories}</p>
