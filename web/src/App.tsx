@@ -301,9 +301,16 @@ export default function App() {
                   {summary.entries.map((entry) => (
                     <li key={entry.id}>
                       <div className="entry-meta">
-                        <p className="entry-note">{entry.note}</p>
-                        <p className="muted">{entry.calories} calories</p>
-                        <p className="muted">{new Date(entry.consumed_at).toLocaleString()}</p>
+                        <div className="entry-head">
+                          <p className="entry-note">{entry.note}</p>
+                          <p className="entry-time">
+                            {new Date(entry.consumed_at).toLocaleTimeString(undefined, {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+                        <p className="entry-calories">{entry.calories} calories</p>
                       </div>
                       <div className="entry-actions">
                         <button

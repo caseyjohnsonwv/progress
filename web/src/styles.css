@@ -225,7 +225,7 @@ button.danger {
 
 .chat-actions {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-md);
 }
 
@@ -309,6 +309,27 @@ button.danger {
 .entry-note {
   margin: 0;
   font-weight: 600;
+}
+
+.entry-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.entry-time {
+  margin: 0;
+  color: #4f5a47;
+  font-size: var(--font-label);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.entry-calories {
+  margin: 0.24rem 0 0;
+  color: #4f5a47;
+  font-size: var(--font-label);
 }
 
 .muted {
