@@ -1,0 +1,324 @@
+openapi: 3.1.0
+info:
+  title: Calorie Tracker API
+  version: 1.0.0
+  description: |
+    Minimal single-user backend API for tracking calorie intake.
+
+    ## Scope
+    - Single user; no authentication in v1.
+    - Append-only calorie entries with delete-by-id correction.
+    - Daily summaries for a specific day and "today".
+
+    ## Configuration Contract
+    The running server is expected to validate these required environment variables at startup:
+    - `CALORIE_DAILY_BUDGET`: positive integer daily calorie budget.
+    - `APP_TIMEZONE`: valid IANA timezone string (example: `America/New_York`).
+
+    ## Day Boundary Rule (4:00 AM rollover)
+    Logical day assignment is not midnight-based:
+    1. Convert entry timestamp to `APP_TIMEZONE`.
+    2. If local time is between `00:00:00` and `03:59:59` inclusive, assign entry to the previous calendar date.
+    3. Otherwise assign to the current local calendar date.
+
+    ## Remaining Budget
+    `remaining_calories = budget_calories - consumed_calories`
+    Negative values are valid when over budget.
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+tags:
+  - name: Entries
+    description: Append and correct calorie log entries
+  - name: Days
+    description: Retrieve daily calorie summaries
+paths:
+  /entries:
+    post:
+      tags:
+        - Entries
+      summary: Create calorie entry
+      description: |
+        Appends a new calorie entry using the server timestamp.
+        The server computes the logical `day` from `consumed_at` using the fixed timezone and 4:00 AM rollover rule.
+      operationId: createEntry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCalorieEntryRequest'
+            examples:
+              basic:
+                summary: Basic calorie entry
+                value:
+                  note: Breakfast burrito
+                  calories: 650
+      responses:
+        '201':
+          description: Entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalorieEntry'
+              examples:
+                created:
+                  value:
+                    id: 4b1994d5-ab58-43aa-95f3-4d6162e5dacc
+                    note: Breakfast burrito
+                    calories: 650
+                    consumed_at: '2026-03-13T08:22:19Z'
+                    day: '2026-03-13'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /entries/{entryId}:
+    delete:
+      tags:
+        - Entries
+      summary: Delete calorie entry
+      description: Hard-deletes a previously created entry by ID.
+      operationId: deleteEntry
+      parameters:
+        - $ref: '#/components/parameters/EntryId'
+      responses:
+        '204':
+          description: Entry deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /days/{day}:
+    get:
+      tags:
+        - Days
+      summary: Get summary for a logical day
+      description: |
+        Returns entries and aggregate totals for the supplied logical day (`YYYY-MM-DD`).
+        Entries are returned in ascending timestamp order (oldest to newest).
+      operationId: getDaySummary
+      parameters:
+        - $ref: '#/components/parameters/Day'
+      responses:
+        '200':
+          description: Daily summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailySummaryResponse'
+              examples:
+                summary:
+                  value:
+                    day: '2026-03-13'
+                    timezone: America/New_York
+                    rollover_hour_local: 4
+                    budget_calories: 2200
+                    consumed_calories: 1350
+                    remaining_calories: 850
+                    entries:
+                      - id: 4b1994d5-ab58-43aa-95f3-4d6162e5dacc
+                        note: Breakfast burrito
+                        calories: 650
+                        consumed_at: '2026-03-13T08:22:19Z'
+                        day: '2026-03-13'
+                      - id: dc88a94f-4dd6-4ec7-b5ff-890d28068e41
+                        note: Sandwich
+                        calories: 700
+                        consumed_at: '2026-03-13T17:05:12Z'
+                        day: '2026-03-13'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /days/today:
+    get:
+      tags:
+        - Days
+      summary: Get summary for current logical day
+      description: |
+        Resolves "today" in `APP_TIMEZONE` using the 4:00 AM rollover rule, then returns the day summary.
+      operationId: getTodaySummary
+      responses:
+        '200':
+          description: Daily summary for current logical day
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailySummaryResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+components:
+  parameters:
+    EntryId:
+      name: entryId
+      in: path
+      required: true
+      description: UUID of the entry
+      schema:
+        type: string
+        format: uuid
+    Day:
+      name: day
+      in: path
+      required: true
+      description: Logical day in `YYYY-MM-DD` format
+      schema:
+        type: string
+        format: date
+  schemas:
+    CalorieEntry:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - note
+        - calories
+        - consumed_at
+        - day
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique entry identifier
+        note:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: User-provided entry label, trimmed and non-empty
+        calories:
+          type: integer
+          minimum: 0
+          description: Calorie amount for this entry
+        consumed_at:
+          type: string
+          format: date-time
+          description: Server timestamp when the entry was recorded
+        day:
+          type: string
+          format: date
+          description: Logical day assigned by timezone + 4:00 AM rollover
+    CreateCalorieEntryRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - note
+        - calories
+      properties:
+        note:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Entry label; server should trim and reject blank after trimming
+        calories:
+          type: integer
+          minimum: 0
+          description: Calorie amount
+    DailySummaryResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - day
+        - timezone
+        - rollover_hour_local
+        - budget_calories
+        - consumed_calories
+        - remaining_calories
+        - entries
+      properties:
+        day:
+          type: string
+          format: date
+          description: Logical day for this summary
+        timezone:
+          type: string
+          description: IANA timezone used by the server for day assignment
+          examples:
+            - America/New_York
+        rollover_hour_local:
+          type: integer
+          const: 4
+          description: Fixed local rollover hour for logical day calculation
+        budget_calories:
+          type: integer
+          minimum: 1
+          description: Daily calorie budget sourced from environment configuration
+        consumed_calories:
+          type: integer
+          minimum: 0
+          description: Sum of all entry calories for the day
+        remaining_calories:
+          type: integer
+          description: Budget minus consumed calories (can be negative)
+        entries:
+          type: array
+          description: Entries for the day, ordered oldest to newest
+          items:
+            $ref: '#/components/schemas/CalorieEntry'
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Stable machine-readable error key
+          examples:
+            - bad_request
+            - not_found
+            - internal_error
+        message:
+          type: string
+          description: Human-readable error summary
+        details:
+          type: object
+          description: Optional structured error context
+          additionalProperties: true
+  responses:
+    BadRequest:
+      description: Invalid request payload or parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            blankNote:
+              value:
+                error: bad_request
+                message: note must be non-empty after trimming
+                details:
+                  field: note
+            invalidDate:
+              value:
+                error: bad_request
+                message: day must be a valid YYYY-MM-DD date
+                details:
+                  field: day
+    NotFound:
+      description: Requested resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            entryNotFound:
+              value:
+                error: not_found
+                message: calorie entry not found
+                details:
+                  entryId: 0bc8f4ca-ec31-468f-9c2e-f5f8c605b9ad
+    InternalServerError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            generic:
+              value:
+                error: internal_error
+                message: unexpected server error

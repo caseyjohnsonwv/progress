@@ -1,0 +1,77 @@
+import fs from "node:fs";
+import path from "node:path";
+import Database from "better-sqlite3";
+import type { CalorieEntry } from "./types.js";
+
+export type EntryRow = {
+  id: string;
+  note: string;
+  calories: number;
+  consumed_at: string;
+  day: string;
+};
+
+export type DatabaseClient = {
+  insertEntry(entry: CalorieEntry): void;
+  deleteEntry(entryId: string): number;
+  listEntriesByDay(day: string): EntryRow[];
+  getConsumedCaloriesByDay(day: string): number;
+};
+
+export function createDatabase(dbPath: string): DatabaseClient {
+  const parentDir = path.dirname(dbPath);
+  fs.mkdirSync(parentDir, { recursive: true });
+
+  const db = new Database(dbPath);
+  db.pragma("journal_mode = WAL");
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS entries (
+      id TEXT PRIMARY KEY,
+      note TEXT NOT NULL,
+      calories INTEGER NOT NULL CHECK(calories >= 0),
+      consumed_at TEXT NOT NULL,
+      day TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_entries_day_consumed_at
+    ON entries(day, consumed_at);
+  `);
+
+  const insertStmt = db.prepare(
+    `INSERT INTO entries (id, note, calories, consumed_at, day)
+     VALUES (@id, @note, @calories, @consumed_at, @day)`,
+  );
+
+  const deleteStmt = db.prepare(`DELETE FROM entries WHERE id = ?`);
+
+  const listByDayStmt = db.prepare(
+    `SELECT id, note, calories, consumed_at, day
+     FROM entries
+     WHERE day = ?
+     ORDER BY consumed_at ASC`,
+  );
+
+  const consumedStmt = db.prepare(
+    `SELECT COALESCE(SUM(calories), 0) AS consumed
+     FROM entries
+     WHERE day = ?`,
+  );
+
+  return {
+    insertEntry(entry: CalorieEntry): void {
+      insertStmt.run(entry);
+    },
+    deleteEntry(entryId: string): number {
+      const result = deleteStmt.run(entryId);
+      return result.changes;
+    },
+    listEntriesByDay(day: string): EntryRow[] {
+      return listByDayStmt.all(day) as EntryRow[];
+    },
+    getConsumedCaloriesByDay(day: string): number {
+      const row = consumedStmt.get(day) as { consumed: number } | undefined;
+      return row?.consumed ?? 0;
+    },
+  };
+}
