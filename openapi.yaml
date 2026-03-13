@@ -6,7 +6,7 @@ info:
     Minimal single-user backend API for tracking calorie intake.
 
     ## Scope
-    - Single user; no authentication in v1.
+    - Single user; optional HTTP Basic Auth when configured by environment variables.
     - Append-only calorie entries with delete-by-id correction.
     - Daily summaries for a specific day and "today".
 

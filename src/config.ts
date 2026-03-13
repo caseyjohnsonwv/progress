@@ -7,6 +7,10 @@ export type AppConfig = {
   sqliteDbPath: string;
   openAiApiKey: string;
   openAiModel: string;
+  basicAuth?: {
+    username: string;
+    password: string;
+  };
 };
 
 function parsePositiveInt(raw: string | undefined, name: string): number {
@@ -37,6 +41,14 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     throw badRequest("PORT must be a positive integer");
   }
 
+  const basicAuthUsername = env.BASIC_AUTH_USERNAME?.trim();
+  const basicAuthPassword = env.BASIC_AUTH_PASSWORD?.trim();
+  const hasBasicAuthUsername = Boolean(basicAuthUsername);
+  const hasBasicAuthPassword = Boolean(basicAuthPassword);
+  if (hasBasicAuthUsername !== hasBasicAuthPassword) {
+    throw badRequest("BASIC_AUTH_USERNAME and BASIC_AUTH_PASSWORD must both be set together");
+  }
+
   return {
     port,
     calorieDailyBudget: parsePositiveInt(env.CALORIE_DAILY_BUDGET, "CALORIE_DAILY_BUDGET"),
@@ -44,6 +56,13 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     sqliteDbPath: env.SQLITE_DB_PATH ?? "./data/calories.db",
     openAiApiKey: parseRequiredString(env.OPENAI_API_KEY, "OPENAI_API_KEY"),
     openAiModel: env.OPENAI_MODEL?.trim() || "gpt-4.1-mini",
+    basicAuth:
+      hasBasicAuthUsername && hasBasicAuthPassword
+        ? {
+            username: basicAuthUsername as string,
+            password: basicAuthPassword as string,
+          }
+        : undefined,
   };
 }
 

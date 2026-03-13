@@ -15,6 +15,7 @@ Minimal single-user calorie tracker with a TypeScript Express API and a small Re
 - `OPENAI_MODEL` (optional, default `gpt-4.1-mini`)
 - `PORT` (optional, default `8000`)
 - `SQLITE_DB_PATH` (optional, default `./data/calories.db`)
+- `BASIC_AUTH_USERNAME` + `BASIC_AUTH_PASSWORD` (optional, but both must be set together)
 
 The server auto-loads a local `.env` file via `dotenv`.
 
@@ -57,6 +58,7 @@ npm start
 In production:
 - Express serves the built React UI at `/`
 - Existing API/docs routes remain available at their current paths
+- If `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD` are set, all routes require HTTP Basic Auth
 
 ## Chat endpoint
 
@@ -69,4 +71,104 @@ Example:
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
   -d '{"message":"log 450 calories for chicken wrap"}'
+```
+
+## Fly.io Deployment (Docker + SQLite volume)
+
+This repository includes:
+- `Dockerfile` for production image builds
+- `.dockerignore` for smaller/faster Docker builds
+- `fly.toml` with:
+  - internal port `8000`
+  - health check on `/health`
+  - mounted volume at `/data`
+  - `SQLITE_DB_PATH=/data/calories.db`
+
+### One-time setup
+
+1. Install and authenticate Fly CLI:
+```bash
+fly auth login
+```
+
+2. Create the app (or use an existing one):
+```bash
+fly apps create <your-app-name>
+```
+
+3. Update `fly.toml`:
+- Set `app = "<your-app-name>"`.
+- Optionally set `primary_region` to your nearest region.
+
+4. Create a persistent SQLite volume:
+```bash
+fly volumes create calorie_data --size 1 --region iad
+```
+
+### Configure secrets and environment
+
+Set required secrets:
+```bash
+fly secrets set \
+  CALORIE_DAILY_BUDGET=2200 \
+  APP_TIMEZONE=America/New_York \
+  OPENAI_API_KEY=<your-openai-api-key> \
+  OPENAI_MODEL=gpt-4.1-mini \
+  BASIC_AUTH_USERNAME=<your-username> \
+  BASIC_AUTH_PASSWORD=<strong-password>
+```
+
+`NODE_ENV`, `PORT`, and `SQLITE_DB_PATH` are already defined in `fly.toml`.
+
+### Deploy
+
+```bash
+fly deploy
+```
+
+### Verify auth + health
+
+1. No credentials should return `401`:
+```bash
+curl -i https://<your-app-name>.fly.dev/health
+```
+
+2. Correct credentials should return `200`:
+```bash
+curl -i -u "<your-username>:<strong-password>" https://<your-app-name>.fly.dev/health
+```
+
+### Smoke test key routes (with auth)
+
+```bash
+curl -i -u "<your-username>:<strong-password>" https://<your-app-name>.fly.dev/
+curl -i -u "<your-username>:<strong-password>" https://<your-app-name>.fly.dev/days/today
+curl -i -u "<your-username>:<strong-password>" https://<your-app-name>.fly.dev/docs
+curl -i -u "<your-username>:<strong-password>" https://<your-app-name>.fly.dev/openapi.yaml
+```
+
+### Persistence check
+
+1. Add an entry.
+2. Restart machine:
+```bash
+fly machine restart <machine-id>
+```
+3. Confirm the entry still exists (`/days/today`), verifying SQLite volume persistence.
+
+### Rotate credentials
+
+```bash
+fly secrets set BASIC_AUTH_USERNAME=<new-username> BASIC_AUTH_PASSWORD=<new-password>
+```
+
+### Rollback
+
+1. List releases:
+```bash
+fly releases
+```
+2. Roll back:
+```bash
+fly releases rollback <release-id>
 ```

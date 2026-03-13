@@ -6,6 +6,7 @@ import { createDaysRouter } from "./routes/days.js";
 import { createEntriesRouter } from "./routes/entries.js";
 import { createChatRouter } from "./routes/chat.js";
 import { createDocsRouter } from "./routes/docs.js";
+import { createBasicAuthMiddleware } from "./basic-auth.js";
 import { errorHandler } from "./errors.js";
 import type { AppConfig } from "./config.js";
 import type { DatabaseClient } from "./db.js";
@@ -26,6 +27,9 @@ export function createApp(deps: AppDeps) {
   const app = express();
 
   app.use(express.json());
+  if (deps.config.basicAuth) {
+    app.use(createBasicAuthMiddleware(deps.config.basicAuth.username, deps.config.basicAuth.password));
+  }
   app.use(createDocsRouter());
   app.use(createEntriesRouter(deps));
   app.use(createDaysRouter(deps));
