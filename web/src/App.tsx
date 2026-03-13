@@ -187,6 +187,19 @@ export default function App() {
     budgetCalories > 0 ? Math.max((consumedCalories - budgetCalories) / budgetCalories, 0) * 100 : 0;
   const overflowPercentCapped = Math.min(overflowPercent, 150);
   const progressNow = budgetCalories > 0 ? Math.min(consumedCalories, budgetCalories) : 0;
+  const budgetDisplay = budgetCalories.toLocaleString();
+  const consumedDisplay = consumedCalories.toLocaleString();
+  const remainingDisplay = (summary?.remaining_calories ?? 0).toLocaleString();
+  const parsedDay = summary ? new Date(summary.day) : null;
+  const formattedDay =
+    parsedDay && !Number.isNaN(parsedDay.getTime())
+      ? parsedDay.toLocaleDateString(undefined, {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        })
+      : summary?.day ?? "";
   const hasChatHistory = chatMessages.length > 0;
   const latestChatMessage = hasChatHistory ? chatMessages[chatMessages.length - 1] : null;
 
@@ -245,7 +258,7 @@ export default function App() {
 
             <section className="panel">
               <h2>Today</h2>
-              <p className="muted">{summary.day}</p>
+              <p className="today-date-badge">{formattedDay}</p>
               <div className="progress-container">
                 <div
                   className="progress-track"
@@ -265,10 +278,19 @@ export default function App() {
                   ) : null}
                 </div>
               </div>
-              <div className="stats">
-                <p>Budget: {summary.budget_calories}</p>
-                <p>Consumed: {summary.consumed_calories}</p>
-                <p>Remaining: {summary.remaining_calories}</p>
+              <div className="today-metrics">
+                <article className="metric-tile metric-budget">
+                  <p className="metric-label">Budget</p>
+                  <p className="metric-value">{budgetDisplay}</p>
+                </article>
+                <article className="metric-tile metric-consumed">
+                  <p className="metric-label">Consumed</p>
+                  <p className="metric-value">{consumedDisplay}</p>
+                </article>
+                <article className="metric-tile metric-remaining">
+                  <p className="metric-label">Remaining</p>
+                  <p className="metric-value">{remainingDisplay}</p>
+                </article>
               </div>
             </section>
 

@@ -89,6 +89,20 @@ h2 {
   gap: 0.35rem;
 }
 
+.today-date-badge {
+  margin: 0;
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  padding: 0.32rem 0.72rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  color: #4c5643;
+  font-size: var(--font-label);
+  font-weight: 600;
+}
+
 .progress-track {
   position: relative;
   height: 16px;
@@ -217,6 +231,51 @@ button.danger {
 
 .chat-actions button {
   width: 100%;
+}
+
+.today-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.metric-tile {
+  margin: 0;
+  padding: 0.58rem 0.6rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.52);
+  display: grid;
+  gap: 0.2rem;
+}
+
+.metric-label {
+  margin: 0;
+  color: #4f5a47;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.metric-value {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(1rem, 0.92rem + 0.55vw, 1.35rem);
+  line-height: 1.12;
+  font-weight: 800;
+}
+
+.metric-budget {
+  background: rgba(150, 187, 187, 0.16);
+}
+
+.metric-consumed {
+  background: rgba(97, 137, 133, 0.15);
+}
+
+.metric-remaining {
+  background: rgba(193, 152, 117, 0.16);
 }
 
 .entries {
