@@ -6,6 +6,7 @@ export default defineConfig({
     proxy: {
       "/days": "http://localhost:8000",
       "/entries": "http://localhost:8000",
+      "/chat": "http://localhost:8000",
     },
   },
 });
