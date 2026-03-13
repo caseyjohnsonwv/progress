@@ -21,3 +21,25 @@ export type ErrorResponse = {
   message: string;
   details?: Record<string, unknown>;
 };
+
+export type ChatRequest = {
+  message: string;
+};
+
+export type ChatAddEntryAction = {
+  type: "add_entry";
+  entry: CalorieEntry;
+};
+
+export type ChatDeleteEntryAction = {
+  type: "delete_entry";
+  entry_id: string;
+  deleted: true;
+};
+
+export type ChatAction = ChatAddEntryAction | ChatDeleteEntryAction;
+
+export type ChatResponse = {
+  reply: string;
+  actions: ChatAction[];
+};

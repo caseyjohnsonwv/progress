@@ -2,6 +2,7 @@ import { z } from "zod";
 import { badRequest } from "./errors.js";
 
 const uuidSchema = z.string().uuid();
+const chatMessageMaxLength = 2_000;
 
 export const createEntrySchema = z
   .object({
@@ -48,4 +49,24 @@ export function parseDay(input: unknown): string {
     throw badRequest("day must be a valid YYYY-MM-DD date", { field: "day" });
   }
   return result.data;
+}
+
+export function parseChatInput(input: unknown): { message: string } {
+  const schema = z
+    .object({
+      message: z.string().max(chatMessageMaxLength),
+    })
+    .strict();
+
+  const result = schema.safeParse(input);
+  if (!result.success) {
+    throw badRequest("invalid request body", { issues: result.error.issues });
+  }
+
+  const message = result.data.message.trim();
+  if (message.length === 0) {
+    throw badRequest("message must be non-empty after trimming", { field: "message" });
+  }
+
+  return { message };
 }

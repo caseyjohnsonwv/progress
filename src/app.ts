@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import { createDaysRouter } from "./routes/days.js";
 import { createEntriesRouter } from "./routes/entries.js";
+import { createChatRouter } from "./routes/chat.js";
 import { createDocsRouter } from "./routes/docs.js";
 import { errorHandler } from "./errors.js";
 import type { AppConfig } from "./config.js";
@@ -28,11 +29,12 @@ export function createApp(deps: AppDeps) {
   app.use(createDocsRouter());
   app.use(createEntriesRouter(deps));
   app.use(createDaysRouter(deps));
+  app.use(createChatRouter(deps));
 
   if (hasWebDist) {
     app.use(express.static(webDistPath));
     app.get("*", (req, res, next) => {
-      const excludedPaths = ["/entries", "/days", "/docs", "/openapi.yaml", "/health"];
+      const excludedPaths = ["/entries", "/days", "/chat", "/docs", "/openapi.yaml", "/health"];
       if (excludedPaths.some((prefix) => req.path.startsWith(prefix))) {
         next();
         return;

@@ -5,6 +5,8 @@ export type AppConfig = {
   calorieDailyBudget: number;
   appTimezone: string;
   sqliteDbPath: string;
+  openAiApiKey: string;
+  openAiModel: string;
 };
 
 function parsePositiveInt(raw: string | undefined, name: string): number {
@@ -40,5 +42,15 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     calorieDailyBudget: parsePositiveInt(env.CALORIE_DAILY_BUDGET, "CALORIE_DAILY_BUDGET"),
     appTimezone: validateTimeZone(env.APP_TIMEZONE),
     sqliteDbPath: env.SQLITE_DB_PATH ?? "./data/calories.db",
+    openAiApiKey: parseRequiredString(env.OPENAI_API_KEY, "OPENAI_API_KEY"),
+    openAiModel: env.OPENAI_MODEL?.trim() || "gpt-4.1-mini",
   };
+}
+
+function parseRequiredString(raw: string | undefined, name: string): string {
+  const value = raw?.trim();
+  if (!value) {
+    throw badRequest(`${name} must be set`);
+  }
+  return value;
 }

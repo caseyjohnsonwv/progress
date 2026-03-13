@@ -1,5 +1,6 @@
 **Strict rules (things you do not do):**
 - Never write unit tests in this repository.
+- Never run `npm` install commands.
 
 **Strict rules (things you must always do):**
 - Always seek my approval before implementing a change.

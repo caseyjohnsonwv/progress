@@ -32,6 +32,8 @@ tags:
     description: Append and correct calorie log entries
   - name: Days
     description: Retrieve daily calorie summaries
+  - name: Chat
+    description: Natural-language assistant with tool access to entries
 paths:
   /entries:
     post:
@@ -150,6 +152,63 @@ paths:
                 $ref: '#/components/schemas/DailySummaryResponse'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /chat:
+    post:
+      tags:
+        - Chat
+      summary: Send a chat message to the calorie assistant
+      description: |
+        Stateless single-turn chat endpoint.
+        The assistant may call tools to add or delete calorie entries.
+        Delete flow is deterministic: the assistant lists today's entries first, then deletes by exact UUID from that list.
+      operationId: postChatMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+            examples:
+              addEntry:
+                summary: Add entry intent
+                value:
+                  message: log 450 calories for chicken wrap
+              deleteEntry:
+                summary: Delete entry intent
+                value:
+                  message: delete my chicken wrap entry
+      responses:
+        '200':
+          description: Assistant response with executed actions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+              examples:
+                addAction:
+                  value:
+                    reply: Logged 450 calories for chicken wrap.
+                    actions:
+                      - type: add_entry
+                        entry:
+                          id: 4b1994d5-ab58-43aa-95f3-4d6162e5dacc
+                          note: chicken wrap
+                          calories: 450
+                          consumed_at: '2026-03-13T18:22:19Z'
+                          day: '2026-03-13'
+                deleteAction:
+                  value:
+                    reply: Deleted the entry.
+                    actions:
+                      - type: delete_entry
+                        entry_id: 4b1994d5-ab58-43aa-95f3-4d6162e5dacc
+                        deleted: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
   parameters:
     EntryId:
@@ -169,6 +228,63 @@ components:
         type: string
         format: date
   schemas:
+    ChatRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: User chat message, trimmed and non-empty
+    ChatActionAddEntry:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - entry
+      properties:
+        type:
+          type: string
+          const: add_entry
+        entry:
+          $ref: '#/components/schemas/CalorieEntry'
+    ChatActionDeleteEntry:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - entry_id
+        - deleted
+      properties:
+        type:
+          type: string
+          const: delete_entry
+        entry_id:
+          type: string
+          format: uuid
+        deleted:
+          type: boolean
+          const: true
+    ChatResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - reply
+        - actions
+      properties:
+        reply:
+          type: string
+          description: Assistant text reply
+        actions:
+          type: array
+          description: Tool actions executed during this request in execution order
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/ChatActionAddEntry'
+              - $ref: '#/components/schemas/ChatActionDeleteEntry'
     CalorieEntry:
       type: object
       additionalProperties: false
