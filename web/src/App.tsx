@@ -228,16 +228,18 @@ export default function App() {
                   maxLength={2000}
                   disabled={chatSending}
                 />
-                <button type="submit" disabled={chatSending || chatInput.trim().length === 0}>
-                  {chatSending ? "Sending..." : "Send"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearChat}
-                  disabled={chatSending || !hasChatHistory}
-                >
-                  Clear
-                </button>
+                <div className="chat-actions">
+                  <button type="submit" disabled={chatSending || chatInput.trim().length === 0}>
+                    {chatSending ? "Sending..." : "Send"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearChat}
+                    disabled={chatSending || !hasChatHistory}
+                  >
+                    Clear
+                  </button>
+                </div>
               </form>
             </section>
 
@@ -276,18 +278,20 @@ export default function App() {
                 <ul className="entries">
                   {summary.entries.map((entry) => (
                     <li key={entry.id}>
-                      <div>
+                      <div className="entry-meta">
                         <p className="entry-note">{entry.note}</p>
                         <p className="muted">{entry.calories} calories</p>
                         <p className="muted">{new Date(entry.consumed_at).toLocaleString()}</p>
                       </div>
-                      <button
-                        type="button"
-                        className="danger"
-                        onClick={() => void handleDelete(entry.id)}
-                      >
-                        Delete
-                      </button>
+                      <div className="entry-actions">
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => void handleDelete(entry.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
