@@ -1,0 +1,138 @@
+:root {
+  --color-seafoam: #96bbbb;
+  --color-teal: #618985;
+  --color-olive: #414535;
+  --color-sand: #f2e3bc;
+  --color-coral: #c19875;
+
+  --bg-page: linear-gradient(180deg, var(--color-seafoam) 0%, var(--color-sand) 100%);
+  --bg-card: rgba(242, 227, 188, 0.92);
+  --text-primary: var(--color-olive);
+  --text-secondary: #56604f;
+  --border: rgba(65, 69, 53, 0.22);
+  --button-primary: var(--color-teal);
+  --button-primary-text: #f8f7f2;
+  --button-danger: var(--color-coral);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-page);
+}
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.card {
+  width: min(720px, 100%);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem;
+}
+
+h1 {
+  margin-top: 0;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.form {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+input,
+button {
+  font: inherit;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 0.55rem 0.7rem;
+}
+
+input:focus,
+button:focus {
+  outline: 2px solid var(--color-teal);
+  outline-offset: 1px;
+}
+
+button {
+  cursor: pointer;
+  background: var(--button-primary);
+  color: var(--button-primary-text);
+  border: 1px solid transparent;
+}
+
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+button.danger {
+  background: var(--button-danger);
+}
+
+.entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.entries li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.entry-note {
+  margin: 0;
+  font-weight: 600;
+}
+
+.muted {
+  color: var(--text-secondary);
+  margin: 0.2rem 0;
+}
+
+.error {
+  color: #8f2f2f;
+}
+
+@media (max-width: 700px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  .entries li {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

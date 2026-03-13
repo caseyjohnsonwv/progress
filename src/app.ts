@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import express from "express";
 import { createDaysRouter } from "./routes/days.js";
 import { createEntriesRouter } from "./routes/entries.js";
@@ -12,12 +15,32 @@ export type AppDeps = {
 };
 
 export function createApp(deps: AppDeps) {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const projectRoot = path.resolve(__dirname, "..");
+  const webDistPath = path.join(projectRoot, "web", "dist");
+  const webIndexPath = path.join(webDistPath, "index.html");
+  const hasWebDist = fs.existsSync(webIndexPath);
+
   const app = express();
 
   app.use(express.json());
   app.use(createDocsRouter());
   app.use(createEntriesRouter(deps));
   app.use(createDaysRouter(deps));
+
+  if (hasWebDist) {
+    app.use(express.static(webDistPath));
+    app.get("*", (req, res, next) => {
+      const excludedPaths = ["/entries", "/days", "/docs", "/openapi.yaml", "/health"];
+      if (excludedPaths.some((prefix) => req.path.startsWith(prefix))) {
+        next();
+        return;
+      }
+
+      res.sendFile(webIndexPath);
+    });
+  }
 
   app.use(errorHandler);
   return app;
