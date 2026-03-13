@@ -183,9 +183,10 @@ export default function App() {
   const consumedCalories = summary?.consumed_calories ?? 0;
   const basePercent =
     budgetCalories > 0 ? Math.min(consumedCalories / budgetCalories, 1) * 100 : 0;
+  const overflowCalories = Math.max(consumedCalories - budgetCalories, 0);
   const overflowPercent =
-    budgetCalories > 0 ? Math.max((consumedCalories - budgetCalories) / budgetCalories, 0) * 100 : 0;
-  const overflowPercentCapped = Math.min(overflowPercent, 150);
+    budgetCalories > 0 ? Math.min(overflowCalories / budgetCalories, 1) * 100 : 0;
+  const showOverflowTrack = overflowCalories > 0 && budgetCalories > 0;
   const progressNow = budgetCalories > 0 ? Math.min(consumedCalories, budgetCalories) : 0;
   const budgetDisplay = budgetCalories.toLocaleString();
   const consumedDisplay = consumedCalories.toLocaleString();
@@ -269,14 +270,15 @@ export default function App() {
                   aria-label="Calories consumed toward daily budget"
                 >
                   <div className="progress-fill" style={{ width: `${basePercent}%` }} />
-                  {overflowPercentCapped > 0 ? (
-                    <div
-                      className="progress-overflow"
-                      style={{ width: `${overflowPercentCapped}%` }}
-                      aria-hidden="true"
-                    />
-                  ) : null}
                 </div>
+                {showOverflowTrack ? (
+                  <div className="progress-track progress-track-warning" aria-hidden="true">
+                    <div
+                      className="progress-fill progress-fill-warning"
+                      style={{ width: `${overflowPercent}%` }}
+                    />
+                  </div>
+                ) : null}
               </div>
               <div className="today-metrics">
                 <article className="metric-tile metric-budget">
