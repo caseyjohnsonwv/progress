@@ -162,6 +162,29 @@ button.danger {
   background: var(--button-danger);
 }
 
+button.danger-soft {
+  background: var(--button-danger);
+  color: var(--button-primary-text);
+  border-color: transparent;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+button.danger-confirm {
+  background: #8f2f2f;
+  color: #fff4ef;
+  border-color: rgba(84, 20, 20, 0.28);
+  transform: translateY(-1px);
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
 .chat-header {
   display: flex;
   align-items: center;
@@ -301,6 +324,12 @@ button.danger {
   width: 100%;
 }
 
+.entry-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+}
+
 .entry-actions button {
   width: 100%;
 }
@@ -389,4 +418,9 @@ button.danger {
   .entry-actions button {
     width: auto;
   }
+
+  .entry-actions {
+    grid-template-columns: auto;
+  }
+
 }

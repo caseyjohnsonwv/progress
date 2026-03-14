@@ -82,6 +82,8 @@ export default function App() {
   const [chatSending, setChatSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [armedDeleteEntryId, setArmedDeleteEntryId] = useState<string | null>(null);
+  const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
 
   async function loadTodaySummary() {
     setLoading(true);
@@ -114,6 +116,30 @@ export default function App() {
 
     window.localStorage.setItem(CHAT_HISTORY_STORAGE_KEY, JSON.stringify(chatMessages));
   }, [chatMessages]);
+
+  useEffect(() => {
+    if (!armedDeleteEntryId) {
+      return;
+    }
+
+    function handleDocumentMouseDown(event: MouseEvent) {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      const currentEntryActions = event.target.closest(
+        `[data-delete-actions-entry-id="${armedDeleteEntryId}"]`,
+      );
+      if (!currentEntryActions) {
+        setArmedDeleteEntryId(null);
+      }
+    }
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+    };
+  }, [armedDeleteEntryId]);
 
   async function handleChatSubmit(event: FormEvent) {
     event.preventDefault();
@@ -155,11 +181,18 @@ export default function App() {
     }
   }
 
-  async function handleDelete(entryId: string) {
-    setError(null);
-    if (!window.confirm("Delete this entry?")) {
+  async function handleDeleteClick(entryId: string) {
+    if (deletingEntryId) {
       return;
     }
+
+    if (armedDeleteEntryId !== entryId) {
+      setArmedDeleteEntryId(entryId);
+      return;
+    }
+
+    setError(null);
+    setDeletingEntryId(entryId);
 
     try {
       const response = await fetch(`/entries/${entryId}`, { method: "DELETE" });
@@ -167,10 +200,14 @@ export default function App() {
         throw new Error(`Failed to delete entry (${response.status})`);
       }
 
+      setArmedDeleteEntryId(null);
       await loadTodaySummary();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error";
       setError(message);
+      setArmedDeleteEntryId(null);
+    } finally {
+      setDeletingEntryId(null);
     }
   }
 
@@ -203,6 +240,7 @@ export default function App() {
       : summary?.day ?? "";
   const hasChatHistory = chatMessages.length > 0;
   const latestChatMessage = hasChatHistory ? chatMessages[chatMessages.length - 1] : null;
+  const isDeletePending = deletingEntryId !== null;
 
   return (
     <main className="page">
@@ -314,13 +352,21 @@ export default function App() {
                         </div>
                         <p className="entry-calories">{entry.calories} calories</p>
                       </div>
-                      <div className="entry-actions">
+                      <div
+                        className="entry-actions"
+                        data-delete-actions-entry-id={entry.id}
+                      >
                         <button
                           type="button"
-                          className="danger"
-                          onClick={() => void handleDelete(entry.id)}
+                          className={armedDeleteEntryId === entry.id ? "danger-confirm" : "danger-soft"}
+                          onClick={() => void handleDeleteClick(entry.id)}
+                          disabled={isDeletePending}
                         >
-                          Delete
+                          {deletingEntryId === entry.id
+                            ? "Deleting..."
+                            : armedDeleteEntryId === entry.id
+                              ? "Confirm delete"
+                              : "Delete"}
                         </button>
                       </div>
                     </li>
