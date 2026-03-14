@@ -35,6 +35,41 @@ export function parseCreateEntryInput(input: unknown): { note: string; calories:
   };
 }
 
+export function parseEditEntryInput(input: unknown): { note?: string; calories?: number } {
+  const schema = z
+    .object({
+      note: z.string().max(200).optional(),
+      calories: z.number().int().min(0).optional(),
+    })
+    .strict();
+
+  const result = schema.safeParse(input);
+  if (!result.success) {
+    throw badRequest("invalid request body", { issues: result.error.issues });
+  }
+
+  const output: { note?: string; calories?: number } = {};
+  if (typeof result.data.note === "string") {
+    const note = result.data.note.trim();
+    if (note.length === 0) {
+      throw badRequest("note must be non-empty after trimming", { field: "note" });
+    }
+    output.note = note;
+  }
+
+  if (typeof result.data.calories === "number") {
+    output.calories = result.data.calories;
+  }
+
+  if (output.note === undefined && output.calories === undefined) {
+    throw badRequest("at least one of note or calories is required", {
+      fields: ["note", "calories"],
+    });
+  }
+
+  return output;
+}
+
 export function parseEntryId(input: unknown): string {
   const result = uuidSchema.safeParse(input);
   if (!result.success) {

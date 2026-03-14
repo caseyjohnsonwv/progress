@@ -37,7 +37,12 @@ export type ChatDeleteEntryAction = {
   deleted: true;
 };
 
-export type ChatAction = ChatAddEntryAction | ChatDeleteEntryAction;
+export type ChatEditEntryAction = {
+  type: "edit_entry";
+  entry: CalorieEntry;
+};
+
+export type ChatAction = ChatAddEntryAction | ChatDeleteEntryAction | ChatEditEntryAction;
 
 export type ChatResponse = {
   reply: string;

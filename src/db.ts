@@ -14,6 +14,7 @@ export type EntryRow = {
 export type DatabaseClient = {
   insertEntry(entry: CalorieEntry): void;
   deleteEntry(entryId: string): number;
+  updateEntryById(entryId: string, patch: { note?: string; calories?: number }): EntryRow | null;
   listEntriesByDay(day: string): EntryRow[];
   getConsumedCaloriesByDay(day: string): number;
 };
@@ -44,6 +45,17 @@ export function createDatabase(dbPath: string): DatabaseClient {
   );
 
   const deleteStmt = db.prepare(`DELETE FROM entries WHERE id = ?`);
+  const getByIdStmt = db.prepare(
+    `SELECT id, note, calories, consumed_at, day
+     FROM entries
+     WHERE id = ?`,
+  );
+  const updateStmt = db.prepare(
+    `UPDATE entries
+     SET note = @note,
+         calories = @calories
+     WHERE id = @id`,
+  );
 
   const listByDayStmt = db.prepare(
     `SELECT id, note, calories, consumed_at, day
@@ -65,6 +77,21 @@ export function createDatabase(dbPath: string): DatabaseClient {
     deleteEntry(entryId: string): number {
       const result = deleteStmt.run(entryId);
       return result.changes;
+    },
+    updateEntryById(entryId: string, patch: { note?: string; calories?: number }): EntryRow | null {
+      const existing = getByIdStmt.get(entryId) as EntryRow | undefined;
+      if (!existing) {
+        return null;
+      }
+
+      updateStmt.run({
+        id: entryId,
+        note: patch.note ?? existing.note,
+        calories: patch.calories ?? existing.calories,
+      });
+
+      const updated = getByIdStmt.get(entryId) as EntryRow | undefined;
+      return updated ?? null;
     },
     listEntriesByDay(day: string): EntryRow[] {
       return listByDayStmt.all(day) as EntryRow[];

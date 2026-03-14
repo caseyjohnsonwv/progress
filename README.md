@@ -40,6 +40,7 @@ In development:
 
 API endpoints:
 - `POST /entries`
+- `PATCH /entries/{entryId}`
 - `DELETE /entries/{entryId}`
 - `GET /days/{day}`
 - `GET /days/today`
@@ -62,8 +63,9 @@ In production:
 
 ## Chat endpoint
 
-`POST /chat` accepts a single user message and can call tools to add or delete calorie entries.
-For deletes, the assistant first reads today's summary (same logic/data as `GET /days/today`) and then deletes by exact entry UUID.
+`POST /chat` accepts a single user message and can call tools to add, edit, or delete calorie entries.
+For edits/deletes, the assistant first reads today's summary (same logic/data as `GET /days/today`) and then uses exact entry UUIDs from that list.
+Duplication is chat-only and today-scoped: the assistant looks up today's entries, selects one, then adds a new entry from it.
 
 Example:
 

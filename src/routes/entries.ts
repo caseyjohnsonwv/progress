@@ -2,7 +2,7 @@ import { Router } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { calculateLogicalDay } from "../day-logic.js";
 import { notFound } from "../errors.js";
-import { parseCreateEntryInput, parseEntryId } from "../validation.js";
+import { parseCreateEntryInput, parseEditEntryInput, parseEntryId } from "../validation.js";
 import type { AppDeps } from "../app.js";
 import type { CalorieEntry } from "../types.js";
 
@@ -33,6 +33,17 @@ export function createEntriesRouter(deps: AppDeps): Router {
     }
 
     res.status(204).send();
+  });
+
+  router.patch("/entries/:entryId", (req, res) => {
+    const entryId = parseEntryId(req.params.entryId);
+    const patch = parseEditEntryInput(req.body);
+    const entry = deps.db.updateEntryById(entryId, patch);
+    if (!entry) {
+      throw notFound("calorie entry not found", { entryId });
+    }
+
+    res.json(entry);
   });
 
   return router;

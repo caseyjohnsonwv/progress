@@ -4,15 +4,20 @@ import { v4 as uuidv4 } from "uuid";
 import { calculateLogicalDay } from "../day-logic.js";
 import { buildTodaySummary } from "../daily-summary.js";
 import { ApiError, notFound } from "../errors.js";
-import { parseChatInput, parseCreateEntryInput, parseEntryId } from "../validation.js";
+import { parseChatInput, parseCreateEntryInput, parseEditEntryInput, parseEntryId } from "../validation.js";
 import type { AppDeps } from "../app.js";
 import type { CalorieEntry, ChatAction, ChatResponse } from "../types.js";
 
 const maxToolRounds = 5;
+const CHAT_TOOL_ADD_ENTRY = "add_entry";
+const CHAT_TOOL_LIST_TODAY_ENTRIES = "list_today_entries";
+const CHAT_TOOL_DELETE_ENTRY_BY_ID = "delete_entry_by_id";
+const CHAT_TOOL_EDIT_ENTRY_BY_ID = "edit_entry_by_id";
 
 const systemPrompt =
-  "You are a calorie logging assistant. Use tools for add/delete actions whenever possible. " +
-  "For delete intent, call list_today_entries first, then call delete_entry_by_id using an id from that list. " +
+  "You are a calorie logging assistant. Use tools for add/edit/delete actions whenever possible. " +
+  "For edit or delete intent, call list_today_entries first, then call edit_entry_by_id or delete_entry_by_id using an id from that list. " +
+  "For duplicate intent, call list_today_entries first to identify the source entry, then call add_entry with the duplicated values. " +
   "Never invent ids. If unsure, ask a concise clarification question and do not delete. " +
   "When calling add_entry, always format note in Professional Title Case. " +
   "Do not suggest next actions or next steps in your reply.";
@@ -20,7 +25,7 @@ const systemPrompt =
 const chatTools = [
   {
     type: "function",
-    name: "add_entry",
+    name: CHAT_TOOL_ADD_ENTRY,
     description: "Add a calorie entry.",
     strict: true,
     parameters: {
@@ -42,7 +47,7 @@ const chatTools = [
   },
   {
     type: "function",
-    name: "list_today_entries",
+    name: CHAT_TOOL_LIST_TODAY_ENTRIES,
     description: "List today's calorie summary and entries. This mirrors the /days/today response.",
     strict: true,
     parameters: {
@@ -54,7 +59,7 @@ const chatTools = [
   },
   {
     type: "function",
-    name: "delete_entry_by_id",
+    name: CHAT_TOOL_DELETE_ENTRY_BY_ID,
     description: "Delete a calorie entry by UUID from list_today_entries.",
     strict: true,
     parameters: {
@@ -66,6 +71,33 @@ const chatTools = [
           type: "string",
           format: "uuid",
           description: "UUID of the entry to delete.",
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    name: CHAT_TOOL_EDIT_ENTRY_BY_ID,
+    description: "Edit a calorie entry by UUID from list_today_entries without changing timestamp/day.",
+    strict: false,
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["entry_id"],
+      properties: {
+        entry_id: {
+          type: "string",
+          format: "uuid",
+          description: "UUID of the entry to edit.",
+        },
+        note: {
+          type: "string",
+          description: "Updated short note for the calorie entry in Professional Title Case.",
+        },
+        calories: {
+          type: "integer",
+          minimum: 0,
+          description: "Updated calorie amount for the entry.",
         },
       },
     },
@@ -143,7 +175,7 @@ export function createChatRouter(deps: AppDeps): Router {
 }
 
 function runTool(toolCall: ToolCall, deps: AppDeps, actions: ChatAction[]): Record<string, unknown> {
-  if (toolCall.name === "add_entry") {
+  if (toolCall.name === CHAT_TOOL_ADD_ENTRY) {
     const rawArgs = parseJsonObject(toolCall.argsJson);
     const payload = parseCreateEntryInput(rawArgs);
     const now = new Date();
@@ -160,11 +192,11 @@ function runTool(toolCall: ToolCall, deps: AppDeps, actions: ChatAction[]): Reco
     return { ok: true, entry };
   }
 
-  if (toolCall.name === "list_today_entries") {
+  if (toolCall.name === CHAT_TOOL_LIST_TODAY_ENTRIES) {
     return buildTodaySummary(deps);
   }
 
-  if (toolCall.name === "delete_entry_by_id") {
+  if (toolCall.name === CHAT_TOOL_DELETE_ENTRY_BY_ID) {
     const rawArgs = parseJsonObject(toolCall.argsJson);
     const entryId = parseEntryId(rawArgs.entry_id);
     const changes = deps.db.deleteEntry(entryId);
@@ -174,6 +206,22 @@ function runTool(toolCall: ToolCall, deps: AppDeps, actions: ChatAction[]): Reco
 
     actions.push({ type: "delete_entry", entry_id: entryId, deleted: true });
     return { ok: true, deleted: true, entry_id: entryId };
+  }
+
+  if (toolCall.name === CHAT_TOOL_EDIT_ENTRY_BY_ID) {
+    const rawArgs = parseJsonObject(toolCall.argsJson);
+    const entryId = parseEntryId(rawArgs.entry_id);
+    const patch = parseEditEntryInput({
+      note: rawArgs.note,
+      calories: rawArgs.calories,
+    });
+    const entry = deps.db.updateEntryById(entryId, patch);
+    if (!entry) {
+      throw notFound("calorie entry not found", { entryId });
+    }
+
+    actions.push({ type: "edit_entry", entry });
+    return { ok: true, entry };
   }
 
   throw new ApiError(400, "bad_request", `unsupported tool requested: ${toolCall.name}`);
@@ -281,7 +329,17 @@ async function createResponse(
       output?: unknown;
       output_text?: string;
     };
-  } catch {
-    throw new ApiError(500, "internal_error", "chat provider request failed");
+  } catch (err) {
+    const providerMessage =
+      err && typeof err === "object" && typeof (err as { message?: unknown }).message === "string"
+        ? ((err as { message: string }).message || "").trim()
+        : "";
+
+    throw new ApiError(
+      500,
+      "internal_error",
+      "chat provider request failed",
+      providerMessage ? { provider_error: providerMessage } : undefined,
+    );
   }
 }

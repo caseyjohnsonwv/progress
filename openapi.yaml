@@ -7,7 +7,7 @@ info:
 
     ## Scope
     - Single user; optional HTTP Basic Auth when configured by environment variables.
-    - Append-only calorie entries with delete-by-id correction.
+    - Calorie entries with create, edit-by-id, and delete-by-id correction.
     - Daily summaries for a specific day and "today".
 
     ## Configuration Contract
@@ -76,6 +76,44 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
   /entries/{entryId}:
+    patch:
+      tags:
+        - Entries
+      summary: Edit calorie entry
+      description: |
+        Updates an existing calorie entry by ID without changing `consumed_at` or logical `day`.
+        At least one of `note` or `calories` must be provided.
+      operationId: updateEntry
+      parameters:
+        - $ref: '#/components/parameters/EntryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCalorieEntryRequest'
+            examples:
+              updateNote:
+                summary: Update note only
+                value:
+                  note: Chicken Wrap
+              updateCalories:
+                summary: Update calories only
+                value:
+                  calories: 540
+      responses:
+        '200':
+          description: Entry updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalorieEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
     delete:
       tags:
         - Entries
@@ -159,8 +197,9 @@ paths:
       summary: Send a chat message to the calorie assistant
       description: |
         Stateless single-turn chat endpoint.
-        The assistant may call tools to add or delete calorie entries.
-        Delete flow is deterministic: the assistant lists today's entries first, then deletes by exact UUID from that list.
+        The assistant may call tools to add, edit, or delete calorie entries.
+        Edit/delete flows are deterministic: the assistant lists today's entries first, then uses exact UUIDs from that list.
+        Duplicate flow is chat-only and today-scoped: list today's entries first, then add a new entry based on the selected source.
       operationId: postChatMessage
       requestBody:
         required: true
@@ -177,6 +216,14 @@ paths:
                 summary: Delete entry intent
                 value:
                   message: delete my chicken wrap entry
+              editEntry:
+                summary: Edit entry intent
+                value:
+                  message: update my chicken wrap entry to 540 calories
+              duplicateEntry:
+                summary: Duplicate entry intent
+                value:
+                  message: duplicate my chicken wrap entry
       responses:
         '200':
           description: Assistant response with executed actions
@@ -203,6 +250,17 @@ paths:
                       - type: delete_entry
                         entry_id: 4b1994d5-ab58-43aa-95f3-4d6162e5dacc
                         deleted: true
+                editAction:
+                  value:
+                    reply: Updated the entry to 540 calories.
+                    actions:
+                      - type: edit_entry
+                        entry:
+                          id: 4b1994d5-ab58-43aa-95f3-4d6162e5dacc
+                          note: Chicken Wrap
+                          calories: 540
+                          consumed_at: '2026-03-13T18:22:19Z'
+                          day: '2026-03-13'
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
@@ -268,6 +326,18 @@ components:
         deleted:
           type: boolean
           const: true
+    ChatActionEditEntry:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - entry
+      properties:
+        type:
+          type: string
+          const: edit_entry
+        entry:
+          $ref: '#/components/schemas/CalorieEntry'
     ChatResponse:
       type: object
       additionalProperties: false
@@ -285,6 +355,7 @@ components:
             oneOf:
               - $ref: '#/components/schemas/ChatActionAddEntry'
               - $ref: '#/components/schemas/ChatActionDeleteEntry'
+              - $ref: '#/components/schemas/ChatActionEditEntry'
     CalorieEntry:
       type: object
       additionalProperties: false
@@ -332,6 +403,24 @@ components:
           type: integer
           minimum: 0
           description: Calorie amount
+    UpdateCalorieEntryRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        note:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Updated entry label; server trims and rejects blank after trimming
+        calories:
+          type: integer
+          minimum: 0
+          description: Updated calorie amount
+      anyOf:
+        - required:
+            - note
+        - required:
+            - calories
     DailySummaryResponse:
       type: object
       additionalProperties: false
