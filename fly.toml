@@ -23,6 +23,5 @@ primary_region = 'iad'
   memory_mb = 1024
 
 [[mounts]]
-  source = "kcj-progress-data"
+  source = "kcj_progress_data"
   destination = "/data"
-  
