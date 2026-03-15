@@ -494,7 +494,7 @@ export default function App() {
   const budgetDisplay = budgetCalories.toLocaleString();
   const consumedDisplay = consumedCalories.toLocaleString();
   const remainingDisplay = (summary?.remaining_calories ?? 0).toLocaleString();
-  const parsedDay = summary ? new Date(summary.day) : null;
+  const parsedDay = summary ? new Date(`${summary.day}T12:00:00Z`) : null;
   const formattedDay =
     parsedDay && !Number.isNaN(parsedDay.getTime())
       ? parsedDay.toLocaleDateString(undefined, {
@@ -502,6 +502,7 @@ export default function App() {
           month: "long",
           day: "numeric",
           year: "numeric",
+          timeZone: summary?.timezone,
         })
       : summary?.day ?? "";
   const hasChatHistory = chatMessages.length > 0;
