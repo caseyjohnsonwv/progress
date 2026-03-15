@@ -111,6 +111,10 @@ export default function App() {
   const [chatError, setChatError] = useState<string | null>(null);
   const [armedDeleteEntryId, setArmedDeleteEntryId] = useState<string | null>(null);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [savingEntryId, setSavingEntryId] = useState<string | null>(null);
+  const [editNote, setEditNote] = useState("");
+  const [editCalories, setEditCalories] = useState("");
 
   async function loadDashboardData() {
     setLoading(true);
@@ -228,7 +232,7 @@ export default function App() {
   }
 
   async function handleDeleteClick(entryId: string) {
-    if (deletingEntryId) {
+    if (deletingEntryId || savingEntryId || editingEntryId === entryId) {
       return;
     }
 
@@ -254,6 +258,77 @@ export default function App() {
       setArmedDeleteEntryId(null);
     } finally {
       setDeletingEntryId(null);
+    }
+  }
+
+  function handleEditClick(entry: CalorieEntry) {
+    if (deletingEntryId || savingEntryId) {
+      return;
+    }
+
+    setError(null);
+    setArmedDeleteEntryId(null);
+    setEditingEntryId(entry.id);
+    setEditNote(entry.note);
+    setEditCalories(String(entry.calories));
+  }
+
+  function handleCancelEdit() {
+    setEditingEntryId(null);
+    setEditNote("");
+    setEditCalories("");
+  }
+
+  async function handleSaveEdit(entry: CalorieEntry) {
+    if (savingEntryId || deletingEntryId || editingEntryId !== entry.id) {
+      return;
+    }
+
+    const trimmedNote = editNote.trim();
+    if (trimmedNote.length === 0) {
+      setError("note must be non-empty after trimming");
+      return;
+    }
+
+    const caloriesValue = Number(editCalories);
+    if (!Number.isInteger(caloriesValue) || caloriesValue < 0) {
+      setError("calories must be a non-negative integer");
+      return;
+    }
+
+    const patch: { note?: string; calories?: number } = {};
+    if (trimmedNote !== entry.note) {
+      patch.note = trimmedNote;
+    }
+    if (caloriesValue !== entry.calories) {
+      patch.calories = caloriesValue;
+    }
+
+    if (patch.note === undefined && patch.calories === undefined) {
+      handleCancelEdit();
+      return;
+    }
+
+    setError(null);
+    setSavingEntryId(entry.id);
+
+    try {
+      const response = await fetch(`/entries/${entry.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to update entry (${response.status})`);
+      }
+
+      handleCancelEdit();
+      await loadDashboardData();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unexpected error";
+      setError(message);
+    } finally {
+      setSavingEntryId(null);
     }
   }
 
@@ -286,7 +361,6 @@ export default function App() {
       : summary?.day ?? "";
   const hasChatHistory = chatMessages.length > 0;
   const latestChatMessage = hasChatHistory ? chatMessages[chatMessages.length - 1] : null;
-  const isDeletePending = deletingEntryId !== null;
   const dayLabelFormatter =
     summary?.timezone
       ? new Intl.DateTimeFormat(undefined, {
@@ -412,7 +486,20 @@ export default function App() {
                     aria-controls="entries-list"
                     onClick={() => setEntriesCollapsed((prev) => !prev)}
                   >
-                    {entriesCollapsed ? "▾" : "▴"}
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      className={`panel-toggle-icon${entriesCollapsed ? "" : " is-expanded"}`}
+                    >
+                      <path
+                        d="m6 9 6 6 6-6"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                      />
+                    </svg>
                   </button>
                 </div>
               </div>
@@ -421,10 +508,14 @@ export default function App() {
                   {summary.entries.length > 0 ? (
                     <ul className="entries">
                       {summary.entries.map((entry) => (
-                        <li key={entry.id}>
+                        <li key={entry.id} className={editingEntryId === entry.id ? "entry-editing" : undefined}>
                           <div className="entry-meta">
                             <div className="entry-head">
-                              <p className="entry-note">{entry.note}</p>
+                              {editingEntryId === entry.id ? (
+                                <p className="entry-note" aria-hidden="true" />
+                              ) : (
+                                <p className="entry-note">{entry.note}</p>
+                              )}
                               <p className="entry-time">
                                 {new Date(entry.consumed_at).toLocaleTimeString(undefined, {
                                   hour: "numeric",
@@ -432,23 +523,115 @@ export default function App() {
                                 })}
                               </p>
                             </div>
-                            <p className="entry-calories">{entry.calories} calories</p>
+                            {editingEntryId === entry.id ? (
+                              <div className="entry-inline-editor">
+                                <input
+                                  aria-label="Edit note"
+                                  value={editNote}
+                                  onChange={(event) => setEditNote(event.target.value)}
+                                  maxLength={200}
+                                  disabled={savingEntryId === entry.id}
+                                />
+                                <input
+                                  aria-label="Edit calories"
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  value={editCalories}
+                                  onChange={(event) => setEditCalories(event.target.value)}
+                                  disabled={savingEntryId === entry.id}
+                                />
+                              </div>
+                            ) : (
+                              <p className="entry-calories">{entry.calories} calories</p>
+                            )}
                           </div>
                           <div className="entry-actions" data-delete-actions-entry-id={entry.id}>
-                            <button
-                              type="button"
-                              className={
-                                armedDeleteEntryId === entry.id ? "danger-confirm" : "danger-soft"
-                              }
-                              onClick={() => void handleDeleteClick(entry.id)}
-                              disabled={isDeletePending}
-                            >
-                              {deletingEntryId === entry.id
-                                ? "Deleting..."
-                                : armedDeleteEntryId === entry.id
-                                  ? "Confirm delete"
-                                  : "Delete"}
-                            </button>
+                            {editingEntryId === entry.id ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="icon-button"
+                                  aria-label="Save entry edits"
+                                  onClick={() => void handleSaveEdit(entry)}
+                                  disabled={savingEntryId === entry.id}
+                                >
+                                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path
+                                      d="M20 6 9 17l-5-5"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                    />
+                                  </svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="icon-button secondary"
+                                  aria-label="Cancel entry edits"
+                                  onClick={handleCancelEdit}
+                                  disabled={savingEntryId === entry.id}
+                                >
+                                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path
+                                      d="m18 6-12 12M6 6l12 12"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                    />
+                                  </svg>
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  className="icon-button secondary"
+                                  aria-label="Edit entry"
+                                  onClick={() => handleEditClick(entry)}
+                                  disabled={deletingEntryId !== null || savingEntryId !== null}
+                                >
+                                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path
+                                      d="m16.86 3.49 3.65 3.65M5 19l3.75-.5L20.5 6.75a2.58 2.58 0 0 0-3.65-3.65L5.1 14.85z"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                    />
+                                  </svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`icon-button ${
+                                    armedDeleteEntryId === entry.id ? "delete-armed" : "delete-idle"
+                                  }`}
+                                  aria-label={
+                                    armedDeleteEntryId === entry.id
+                                      ? "Confirm delete entry"
+                                      : "Delete entry"
+                                  }
+                                  onClick={() => void handleDeleteClick(entry.id)}
+                                  disabled={deletingEntryId !== null || savingEntryId !== null}
+                                >
+                                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path
+                                      d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                    />
+                                  </svg>
+                                </button>
+                              </>
+                            )}
                           </div>
                         </li>
                       ))}

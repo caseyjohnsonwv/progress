@@ -137,10 +137,31 @@ h2 {
   min-height: 36px;
   padding: 0.35rem 0.72rem;
   font-size: var(--font-label);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface-strong);
   color: var(--text-1);
+}
+
+.panel-toggle:hover:not(:disabled),
+.panel-toggle:active:not(:disabled) {
+  background: var(--surface-strong);
+  color: var(--text-1);
+  border-color: var(--border);
+  transform: none;
+}
+
+.panel-toggle-icon {
+  width: 1rem;
+  height: 1rem;
+  transition: transform 160ms ease;
+}
+
+.panel-toggle-icon.is-expanded {
+  transform: rotate(180deg);
 }
 
 .entries-header-controls {
@@ -440,12 +461,63 @@ button.danger-confirm {
 
 .entry-actions {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
   gap: 0.45rem;
 }
 
-.entry-actions button {
+.icon-button {
+  min-height: 2.1rem;
   width: 100%;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.6rem;
+}
+
+.icon-button svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.icon-button.secondary {
+  background: var(--surface-strong);
+  color: var(--text-1);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.icon-button.secondary:hover:not(:disabled) {
+  background: #fff;
+}
+
+.entry-actions .icon-button.delete-idle {
+  background: linear-gradient(90deg, var(--accent) 0%, #22d3ee 100%);
+  color: #ecfeff;
+  border-color: rgba(8, 145, 178, 0.3);
+}
+
+.entry-actions .icon-button.delete-idle:hover:not(:disabled) {
+  background: linear-gradient(90deg, var(--accent-strong) 0%, var(--accent) 100%);
+}
+
+.entry-actions .icon-button.delete-armed,
+.entry-actions .icon-button.delete-armed:hover:not(:disabled),
+.entry-actions .icon-button.delete-armed:focus:not(:disabled),
+.entry-actions .icon-button.delete-armed:active:not(:disabled) {
+  background: linear-gradient(90deg, #dc2626 0%, #b91c1c 100%);
+  color: #fff;
+  border-color: rgba(153, 27, 27, 0.45);
+}
+
+.entry-inline-editor {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.entry-inline-editor input[type="number"] {
+  max-width: 8rem;
 }
 
 .entry-note {
@@ -466,6 +538,10 @@ button.danger-confirm {
   font-size: var(--font-label);
   font-weight: 600;
   white-space: nowrap;
+}
+
+.entries li.entry-editing .entry-time {
+  margin-bottom: 0.35rem;
 }
 
 .entry-calories {
@@ -581,19 +657,9 @@ button.danger-confirm {
     width: auto;
   }
 
-  .entries li {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .entry-actions,
-  .entry-actions button {
-    width: auto;
-  }
-
   .entry-actions {
-    grid-template-columns: auto;
+    width: 100%;
+    justify-content: flex-end;
   }
 }
 
