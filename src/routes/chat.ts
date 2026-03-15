@@ -26,7 +26,7 @@ const CHAT_TOOL_EDIT_ENTRY_BY_ID = "edit_entry_by_id";
 const systemPrompt =
   "You are a calorie logging assistant. Use tools for add/edit/delete actions whenever possible. " +
   "For edit or delete intent, call list_today_entries first, then call edit_entry_by_id or delete_entry_by_id using an id from that list. " +
-  "For duplicate intent, call list_today_entries for today, search_past_entries_by_note for note-based historical lookup, or search_past_entries_by_day for day-based historical lookup, then call add_entry with the duplicated values. " +
+  "For duplicate intent, first do historical lookup with search_past_entries_by_note (note-based) or search_past_entries_by_day (date-based). If exactly one match is identified, immediately call add_entry with that entry's note and calories. If multiple plausible matches remain, ask a concise clarification question and do not call add_entry yet. If no matches are found, say none were found and ask for a better query or day. " +
   "For past-entry lookup intent, call search_past_entries_by_note (note-based) or search_past_entries_by_day (date-based). " +
   "Historical entries are read-only for edit/delete. " +
   "Never invent ids. If unsure, ask a concise clarification question and do not delete. " +
@@ -72,11 +72,11 @@ const chatTools = [
     type: "function",
     name: CHAT_TOOL_SEARCH_PAST_ENTRIES_BY_NOTE,
     description: "Search past calorie entries by note (excluding today).",
-    strict: true,
+    strict: false,
     parameters: {
       type: "object",
       additionalProperties: false,
-      required: ["query", "limit"],
+      required: ["query"],
       properties: {
         query: {
           type: "string",
@@ -262,6 +262,7 @@ function runTool(toolCall: ToolCall, deps: AppDeps, actions: ChatAction[]): Reco
       query: payload.query,
       limit: payload.limit,
       count: entries.length,
+      has_multiple_matches: entries.length > 1,
       entries,
     };
   }
@@ -269,7 +270,11 @@ function runTool(toolCall: ToolCall, deps: AppDeps, actions: ChatAction[]): Reco
   if (toolCall.name === CHAT_TOOL_SEARCH_PAST_ENTRIES_BY_DAY) {
     const rawArgs = parseJsonObject(toolCall.argsJson);
     const day = parseDay(rawArgs.day);
-    return buildDailySummary(day, deps);
+    const summary = buildDailySummary(day, deps);
+    return {
+      ...summary,
+      has_multiple_matches: summary.entries.length > 1,
+    };
   }
 
   if (toolCall.name === CHAT_TOOL_DELETE_ENTRY_BY_ID) {

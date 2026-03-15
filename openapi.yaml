@@ -281,7 +281,8 @@ paths:
         For past-entry lookup, the assistant can search historical entries by note (`search_past_entries_by_note`) or by day (`search_past_entries_by_day`).
         The assistant receives current logical-day context each request and resolves relative dates before tool calls.
         Historical entries are read-only in chat for edit/delete operations.
-        Duplicate flow can use either today's entries or historical entries as source, then adds a new entry at current time/day.
+        For duplicate flow, the assistant first performs historical lookup, then auto-adds only when a single clear match is found.
+        If multiple plausible matches are found, the assistant asks for concise clarification before adding.
       operationId: postChatMessage
       requestBody:
         required: true

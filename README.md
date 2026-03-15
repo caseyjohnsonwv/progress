@@ -68,7 +68,8 @@ For edits/deletes, the assistant first reads today's summary (same logic/data as
 For past-entry lookup, the assistant can search historical entries by note (`search_past_entries_by_note`) or by day (`search_past_entries_by_day` with `YYYY-MM-DD`).
 The assistant is also given current logical-day context each request so relative dates are resolved before tool calls.
 Historical entries are read-only in chat for edit/delete.
-Duplication can use a historical source entry and still creates a new entry for the current time/day.
+For duplication, the assistant first performs historical lookup and auto-adds only when a single clear match is found.
+If multiple plausible matches are found, the assistant asks for concise clarification before adding.
 
 Example:
 
