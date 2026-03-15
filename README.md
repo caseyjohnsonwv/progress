@@ -65,7 +65,10 @@ In production:
 
 `POST /chat` accepts a single user message and can call tools to add, edit, or delete calorie entries.
 For edits/deletes, the assistant first reads today's summary (same logic/data as `GET /days/today`) and then uses exact entry UUIDs from that list.
-Duplication is chat-only and today-scoped: the assistant looks up today's entries, selects one, then adds a new entry from it.
+For past-entry lookup, the assistant can search historical entries by note (`search_past_entries_by_note`) or by day (`search_past_entries_by_day` with `YYYY-MM-DD`).
+The assistant is also given current logical-day context each request so relative dates are resolved before tool calls.
+Historical entries are read-only in chat for edit/delete.
+Duplication can use a historical source entry and still creates a new entry for the current time/day.
 
 Example:
 

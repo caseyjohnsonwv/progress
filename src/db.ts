@@ -14,8 +14,10 @@ export type EntryRow = {
 export type DatabaseClient = {
   insertEntry(entry: CalorieEntry): void;
   deleteEntry(entryId: string): number;
+  getEntryById(entryId: string): EntryRow | null;
   updateEntryById(entryId: string, patch: { note?: string; calories?: number }): EntryRow | null;
   listEntriesByDay(day: string): EntryRow[];
+  searchPastEntriesByNote(input: { query: string; beforeDay: string; limit: number }): EntryRow[];
   getConsumedCaloriesByDay(day: string): number;
 };
 
@@ -63,6 +65,14 @@ export function createDatabase(dbPath: string): DatabaseClient {
      WHERE day = ?
      ORDER BY consumed_at ASC`,
   );
+  const searchPastByNoteStmt = db.prepare(
+    `SELECT id, note, calories, consumed_at, day
+     FROM entries
+     WHERE day < @before_day
+       AND LOWER(note) LIKE '%' || LOWER(@query) || '%'
+     ORDER BY consumed_at DESC
+     LIMIT @limit`,
+  );
 
   const consumedStmt = db.prepare(
     `SELECT COALESCE(SUM(calories), 0) AS consumed
@@ -77,6 +87,10 @@ export function createDatabase(dbPath: string): DatabaseClient {
     deleteEntry(entryId: string): number {
       const result = deleteStmt.run(entryId);
       return result.changes;
+    },
+    getEntryById(entryId: string): EntryRow | null {
+      const entry = getByIdStmt.get(entryId) as EntryRow | undefined;
+      return entry ?? null;
     },
     updateEntryById(entryId: string, patch: { note?: string; calories?: number }): EntryRow | null {
       const existing = getByIdStmt.get(entryId) as EntryRow | undefined;
@@ -95,6 +109,13 @@ export function createDatabase(dbPath: string): DatabaseClient {
     },
     listEntriesByDay(day: string): EntryRow[] {
       return listByDayStmt.all(day) as EntryRow[];
+    },
+    searchPastEntriesByNote(input: { query: string; beforeDay: string; limit: number }): EntryRow[] {
+      return searchPastByNoteStmt.all({
+        before_day: input.beforeDay,
+        query: input.query,
+        limit: input.limit,
+      }) as EntryRow[];
     },
     getConsumedCaloriesByDay(day: string): number {
       const row = consumedStmt.get(day) as { consumed: number } | undefined;

@@ -28,6 +28,13 @@ const rollingWindowQuerySchema = z.object({
   days: z.coerce.number().int().min(1).max(30),
 });
 
+const searchPastEntriesInputSchema = z
+  .object({
+    query: z.string().max(200),
+    limit: z.number().int().min(1).max(25).optional(),
+  })
+  .strict();
+
 export function parseCreateEntryInput(input: unknown): { note: string; calories: number } {
   const result = createEntrySchema.safeParse(input);
   if (!result.success) {
@@ -114,6 +121,23 @@ export function parseChatInput(input: unknown): { message: string } {
   }
 
   return { message };
+}
+
+export function parseSearchPastEntriesInput(input: unknown): { query: string; limit: number } {
+  const result = searchPastEntriesInputSchema.safeParse(input);
+  if (!result.success) {
+    throw badRequest("invalid request body", { issues: result.error.issues });
+  }
+
+  const query = result.data.query.trim();
+  if (query.length === 0) {
+    throw badRequest("query must be non-empty after trimming", { field: "query" });
+  }
+
+  return {
+    query,
+    limit: result.data.limit ?? 10,
+  };
 }
 
 export function parseRollingWindowQuery(input: unknown): { anchor: string; days: number } {

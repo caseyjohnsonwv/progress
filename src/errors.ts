@@ -29,6 +29,15 @@ export function notFound(message: string, details?: Record<string, unknown>): Ap
 
 export function errorHandler(err: unknown, _req: Request, res: Response<ErrorResponse>, _next: NextFunction): void {
   if (err instanceof ApiError) {
+    if (err.status >= 500) {
+      console.error("ApiError", {
+        status: err.status,
+        error: err.errorCode,
+        message: err.message,
+        details: err.details,
+      });
+    }
+
     res.status(err.status).json({
       error: err.errorCode,
       message: err.message,

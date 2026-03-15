@@ -1,23 +1,34 @@
 import { Router } from "express";
 import OpenAI from "openai";
 import { v4 as uuidv4 } from "uuid";
-import { calculateLogicalDay } from "../day-logic.js";
-import { buildTodaySummary } from "../daily-summary.js";
-import { ApiError, notFound } from "../errors.js";
-import { parseChatInput, parseCreateEntryInput, parseEditEntryInput, parseEntryId } from "../validation.js";
+import { calculateLogicalDay, calculateTodayLogicalDay } from "../day-logic.js";
+import { buildDailySummary, buildTodaySummary } from "../daily-summary.js";
+import { ApiError, badRequest, notFound } from "../errors.js";
+import {
+  parseChatInput,
+  parseCreateEntryInput,
+  parseDay,
+  parseEditEntryInput,
+  parseEntryId,
+  parseSearchPastEntriesInput,
+} from "../validation.js";
 import type { AppDeps } from "../app.js";
 import type { CalorieEntry, ChatAction, ChatResponse } from "../types.js";
 
 const maxToolRounds = 5;
 const CHAT_TOOL_ADD_ENTRY = "add_entry";
 const CHAT_TOOL_LIST_TODAY_ENTRIES = "list_today_entries";
+const CHAT_TOOL_SEARCH_PAST_ENTRIES_BY_NOTE = "search_past_entries_by_note";
+const CHAT_TOOL_SEARCH_PAST_ENTRIES_BY_DAY = "search_past_entries_by_day";
 const CHAT_TOOL_DELETE_ENTRY_BY_ID = "delete_entry_by_id";
 const CHAT_TOOL_EDIT_ENTRY_BY_ID = "edit_entry_by_id";
 
 const systemPrompt =
   "You are a calorie logging assistant. Use tools for add/edit/delete actions whenever possible. " +
   "For edit or delete intent, call list_today_entries first, then call edit_entry_by_id or delete_entry_by_id using an id from that list. " +
-  "For duplicate intent, call list_today_entries first to identify the source entry, then call add_entry with the duplicated values. " +
+  "For duplicate intent, call list_today_entries for today, search_past_entries_by_note for note-based historical lookup, or search_past_entries_by_day for day-based historical lookup, then call add_entry with the duplicated values. " +
+  "For past-entry lookup intent, call search_past_entries_by_note (note-based) or search_past_entries_by_day (date-based). " +
+  "Historical entries are read-only for edit/delete. " +
   "Never invent ids. If unsure, ask a concise clarification question and do not delete. " +
   "When calling add_entry, always format note in Professional Title Case. " +
   "Do not suggest next actions or next steps in your reply.";
@@ -55,6 +66,46 @@ const chatTools = [
       additionalProperties: false,
       properties: {},
       required: [],
+    },
+  },
+  {
+    type: "function",
+    name: CHAT_TOOL_SEARCH_PAST_ENTRIES_BY_NOTE,
+    description: "Search past calorie entries by note (excluding today).",
+    strict: true,
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["query", "limit"],
+      properties: {
+        query: {
+          type: "string",
+          description: "Case-insensitive text to match in entry note.",
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 25,
+          description: "Maximum number of results (defaults to 10).",
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    name: CHAT_TOOL_SEARCH_PAST_ENTRIES_BY_DAY,
+    description: "Get a specific day summary for historical lookup using YYYY-MM-DD.",
+    strict: true,
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["day"],
+      properties: {
+        day: {
+          type: "string",
+          description: "Logical day in YYYY-MM-DD format.",
+        },
+      },
     },
   },
   {
@@ -123,6 +174,7 @@ export function createChatRouter(deps: AppDeps): Router {
         model: deps.config.openAiModel,
         input: [
           { role: "system", content: systemPrompt },
+          { role: "system", content: buildDateContextLine(deps.config.appTimezone) },
           { role: "user", content: payload.message },
         ],
         tools: chatTools as any,
@@ -196,9 +248,43 @@ function runTool(toolCall: ToolCall, deps: AppDeps, actions: ChatAction[]): Reco
     return buildTodaySummary(deps);
   }
 
+  if (toolCall.name === CHAT_TOOL_SEARCH_PAST_ENTRIES_BY_NOTE) {
+    const rawArgs = parseJsonObject(toolCall.argsJson);
+    const payload = parseSearchPastEntriesInput(rawArgs);
+    const todayDay = calculateTodayLogicalDay(deps.config.appTimezone);
+    const entries = deps.db.searchPastEntriesByNote({
+      query: payload.query,
+      beforeDay: todayDay,
+      limit: payload.limit,
+    });
+
+    return {
+      query: payload.query,
+      limit: payload.limit,
+      count: entries.length,
+      entries,
+    };
+  }
+
+  if (toolCall.name === CHAT_TOOL_SEARCH_PAST_ENTRIES_BY_DAY) {
+    const rawArgs = parseJsonObject(toolCall.argsJson);
+    const day = parseDay(rawArgs.day);
+    return buildDailySummary(day, deps);
+  }
+
   if (toolCall.name === CHAT_TOOL_DELETE_ENTRY_BY_ID) {
     const rawArgs = parseJsonObject(toolCall.argsJson);
     const entryId = parseEntryId(rawArgs.entry_id);
+    const entry = deps.db.getEntryById(entryId);
+    if (!entry) {
+      throw notFound("calorie entry not found", { entryId });
+    }
+
+    const todayDay = calculateTodayLogicalDay(deps.config.appTimezone);
+    if (entry.day !== todayDay) {
+      throw badRequest("historical entries cannot be deleted in chat", { entryId, day: entry.day });
+    }
+
     const changes = deps.db.deleteEntry(entryId);
     if (changes === 0) {
       throw notFound("calorie entry not found", { entryId });
@@ -211,6 +297,16 @@ function runTool(toolCall: ToolCall, deps: AppDeps, actions: ChatAction[]): Reco
   if (toolCall.name === CHAT_TOOL_EDIT_ENTRY_BY_ID) {
     const rawArgs = parseJsonObject(toolCall.argsJson);
     const entryId = parseEntryId(rawArgs.entry_id);
+    const existing = deps.db.getEntryById(entryId);
+    if (!existing) {
+      throw notFound("calorie entry not found", { entryId });
+    }
+
+    const todayDay = calculateTodayLogicalDay(deps.config.appTimezone);
+    if (existing.day !== todayDay) {
+      throw badRequest("historical entries cannot be edited in chat", { entryId, day: existing.day });
+    }
+
     const patch = parseEditEntryInput({
       note: rawArgs.note,
       calories: rawArgs.calories,
@@ -225,6 +321,15 @@ function runTool(toolCall: ToolCall, deps: AppDeps, actions: ChatAction[]): Reco
   }
 
   throw new ApiError(400, "bad_request", `unsupported tool requested: ${toolCall.name}`);
+}
+
+function buildDateContextLine(timeZone: string): string {
+  const todayDay = calculateTodayLogicalDay(timeZone);
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    timeZone,
+  }).format(new Date());
+  return `Today in ${timeZone} is ${todayDay} (${weekday}). Resolve relative dates to absolute YYYY-MM-DD before calling tools.`;
 }
 
 function parseJsonObject(input: string): Record<string, unknown> {

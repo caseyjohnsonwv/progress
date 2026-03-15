@@ -278,7 +278,10 @@ paths:
         Stateless single-turn chat endpoint.
         The assistant may call tools to add, edit, or delete calorie entries.
         Edit/delete flows are deterministic: the assistant lists today's entries first, then uses exact UUIDs from that list.
-        Duplicate flow is chat-only and today-scoped: list today's entries first, then add a new entry based on the selected source.
+        For past-entry lookup, the assistant can search historical entries by note (`search_past_entries_by_note`) or by day (`search_past_entries_by_day`).
+        The assistant receives current logical-day context each request and resolves relative dates before tool calls.
+        Historical entries are read-only in chat for edit/delete operations.
+        Duplicate flow can use either today's entries or historical entries as source, then adds a new entry at current time/day.
       operationId: postChatMessage
       requestBody:
         required: true
