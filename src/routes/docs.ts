@@ -19,9 +19,5 @@ export function createDocsRouter(): Router {
 
   router.use("/docs", swaggerUi.serve, swaggerUi.setup(document));
 
-  router.get("/health", (_req, res) => {
-    res.json({ status: "ok" });
-  });
-
   return router;
 }

@@ -30,7 +30,13 @@ export function createApp(deps: AppDeps) {
   if (deps.config.basicAuth) {
     app.use(createBasicAuthMiddleware(deps.config.basicAuth.username, deps.config.basicAuth.password));
   }
-  app.use(createDocsRouter());
+  app.get("/health", (_req, res) => {
+    res.json({ status: "ok" });
+  });
+
+  if (process.env.NODE_ENV !== "production") {
+    app.use(createDocsRouter());
+  }
   app.use(createEntriesRouter(deps));
   app.use(createDaysRouter(deps));
   app.use(createChatRouter(deps));
