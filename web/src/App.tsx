@@ -361,6 +361,7 @@ export default function App() {
       : summary?.day ?? "";
   const hasChatHistory = chatMessages.length > 0;
   const latestChatMessage = hasChatHistory ? chatMessages[chatMessages.length - 1] : null;
+  const chartCalorieBaseline = summary?.budget_calories ?? CHART_CALORIE_BASELINE;
   const dayLabelFormatter =
     summary?.timezone
       ? new Intl.DateTimeFormat(undefined, {
@@ -649,16 +650,22 @@ export default function App() {
                 <ul className="calorie-chart">
                   {chartPoints.map((point) => {
                     const heightPercent = Math.min(
-                      (point.consumed / CHART_CALORIE_BASELINE) * 100,
+                      (point.consumed / chartCalorieBaseline) * 100,
                       100,
                     );
                     const isToday = point.day === todayDay;
+                    const isOverflow = point.consumed > chartCalorieBaseline;
+                    const fillClassName = isOverflow
+                      ? "chart-fill chart-fill-warning"
+                      : isToday
+                        ? "chart-fill chart-fill-today"
+                        : "chart-fill";
 
                     return (
                       <li key={point.day} className={isToday ? "chart-item chart-item-today" : "chart-item"}>
                         <p className="chart-value">{point.consumed.toLocaleString()}</p>
                         <div className="chart-track" aria-hidden="true">
-                          <div className="chart-fill" style={{ height: `${heightPercent}%` }} />
+                          <div className={fillClassName} style={{ height: `${heightPercent}%` }} />
                         </div>
                         <p className="chart-label">{point.label}</p>
                       </li>
