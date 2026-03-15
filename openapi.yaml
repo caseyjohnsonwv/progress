@@ -173,6 +173,85 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /days/rolling:
+    get:
+      tags:
+        - Days
+      summary: Get rolling logical-day summaries ending at an anchor day
+      description: |
+        Returns daily summaries for a rolling window ending at `anchor`.
+        Both `anchor` and `days` are required query parameters.
+        Results are ordered from oldest to newest.
+      operationId: getRollingDaySummaries
+      parameters:
+        - $ref: '#/components/parameters/AnchorDay'
+        - $ref: '#/components/parameters/RollingDays'
+      responses:
+        '200':
+          description: Rolling daily summaries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RollingDailySummariesResponse'
+              examples:
+                rolling:
+                  value:
+                    anchor_day: '2026-03-13'
+                    days: 7
+                    summaries:
+                      - day: '2026-03-07'
+                        timezone: America/New_York
+                        rollover_hour_local: 4
+                        budget_calories: 2200
+                        consumed_calories: 1200
+                        remaining_calories: 1000
+                        entries: []
+                      - day: '2026-03-08'
+                        timezone: America/New_York
+                        rollover_hour_local: 4
+                        budget_calories: 2200
+                        consumed_calories: 1500
+                        remaining_calories: 700
+                        entries: []
+                      - day: '2026-03-09'
+                        timezone: America/New_York
+                        rollover_hour_local: 4
+                        budget_calories: 2200
+                        consumed_calories: 1800
+                        remaining_calories: 400
+                        entries: []
+                      - day: '2026-03-10'
+                        timezone: America/New_York
+                        rollover_hour_local: 4
+                        budget_calories: 2200
+                        consumed_calories: 0
+                        remaining_calories: 2200
+                        entries: []
+                      - day: '2026-03-11'
+                        timezone: America/New_York
+                        rollover_hour_local: 4
+                        budget_calories: 2200
+                        consumed_calories: 900
+                        remaining_calories: 1300
+                        entries: []
+                      - day: '2026-03-12'
+                        timezone: America/New_York
+                        rollover_hour_local: 4
+                        budget_calories: 2200
+                        consumed_calories: 1100
+                        remaining_calories: 1100
+                        entries: []
+                      - day: '2026-03-13'
+                        timezone: America/New_York
+                        rollover_hour_local: 4
+                        budget_calories: 2200
+                        consumed_calories: 1350
+                        remaining_calories: 850
+                        entries: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /days/today:
     get:
       tags:
@@ -285,6 +364,23 @@ components:
       schema:
         type: string
         format: date
+    AnchorDay:
+      name: anchor
+      in: query
+      required: true
+      description: Logical day anchor in `YYYY-MM-DD` format
+      schema:
+        type: string
+        format: date
+    RollingDays:
+      name: days
+      in: query
+      required: true
+      description: Number of logical days to return, including the anchor day
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 30
   schemas:
     ChatRequest:
       type: object
@@ -462,6 +558,28 @@ components:
           description: Entries for the day, ordered oldest to newest
           items:
             $ref: '#/components/schemas/CalorieEntry'
+    RollingDailySummariesResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - anchor_day
+        - days
+        - summaries
+      properties:
+        anchor_day:
+          type: string
+          format: date
+          description: Logical anchor day for the rolling window
+        days:
+          type: integer
+          minimum: 1
+          maximum: 30
+          description: Number of summaries returned
+        summaries:
+          type: array
+          description: Daily summaries ordered oldest to newest
+          items:
+            $ref: '#/components/schemas/DailySummaryResponse'
     ErrorResponse:
       type: object
       additionalProperties: false

@@ -18,6 +18,16 @@ const daySchema = z
     message: "day must be a valid YYYY-MM-DD date",
   });
 
+const rollingWindowQuerySchema = z.object({
+  anchor: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "anchor must be in YYYY-MM-DD format")
+    .refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00Z`)), {
+      message: "anchor must be a valid YYYY-MM-DD date",
+    }),
+  days: z.coerce.number().int().min(1).max(30),
+});
+
 export function parseCreateEntryInput(input: unknown): { note: string; calories: number } {
   const result = createEntrySchema.safeParse(input);
   if (!result.success) {
@@ -104,4 +114,16 @@ export function parseChatInput(input: unknown): { message: string } {
   }
 
   return { message };
+}
+
+export function parseRollingWindowQuery(input: unknown): { anchor: string; days: number } {
+  const result = rollingWindowQuerySchema.safeParse(input);
+  if (!result.success) {
+    throw badRequest("invalid query parameters", { issues: result.error.issues });
+  }
+
+  return {
+    anchor: result.data.anchor,
+    days: result.data.days,
+  };
 }

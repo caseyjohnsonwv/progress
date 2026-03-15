@@ -16,6 +16,12 @@ export type DailySummaryResponse = {
   entries: CalorieEntry[];
 };
 
+export type RollingDailySummariesResponse = {
+  anchor_day: string;
+  days: number;
+  summaries: DailySummaryResponse[];
+};
+
 export type ErrorResponse = {
   error: string;
   message: string;

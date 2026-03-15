@@ -78,6 +78,23 @@ h2 {
   background: rgba(255, 255, 255, 0.32);
 }
 
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.panel-toggle {
+  min-height: auto;
+  padding: 0.32rem 0.65rem;
+  font-size: var(--font-label);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--text-primary);
+}
+
 .stats {
   display: grid;
   grid-template-columns: 1fr;
@@ -358,6 +375,57 @@ button.danger-confirm {
   margin: 0.24rem 0 0;
   color: #4f5a47;
   font-size: var(--font-label);
+}
+
+.calorie-chart {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.45rem;
+  align-items: end;
+}
+
+.chart-item {
+  display: grid;
+  gap: 0.32rem;
+  justify-items: center;
+}
+
+.chart-value {
+  margin: 0;
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: #4f5a47;
+}
+
+.chart-track {
+  width: 100%;
+  height: 110px;
+  display: flex;
+  align-items: flex-end;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.58);
+  overflow: hidden;
+}
+
+.chart-fill {
+  width: 100%;
+  background: var(--color-teal);
+  border-radius: 8px 8px 0 0;
+}
+
+.chart-item-today .chart-fill {
+  background: var(--color-coral);
+}
+
+.chart-label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #4f5a47;
 }
 
 .muted {

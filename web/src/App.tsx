@@ -18,6 +18,12 @@ type DailySummaryResponse = {
   entries: CalorieEntry[];
 };
 
+type RollingDailySummariesResponse = {
+  anchor_day: string;
+  days: number;
+  summaries: DailySummaryResponse[];
+};
+
 type ChatAddEntryAction = {
   type: "add_entry";
   entry: CalorieEntry;
@@ -42,6 +48,8 @@ type ChatMessage = {
 };
 
 const CHAT_HISTORY_STORAGE_KEY = "chat_history_v1";
+const ENTRIES_COLLAPSED_STORAGE_KEY = "entries_collapsed_v1";
+const CHART_CALORIE_BASELINE = 2000;
 
 function isChatMessage(value: unknown): value is ChatMessage {
   if (!value || typeof value !== "object") {
@@ -74,10 +82,29 @@ function loadChatHistory(): ChatMessage[] {
   }
 }
 
+function loadEntriesCollapsed(): boolean {
+  try {
+    const raw =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem(ENTRIES_COLLAPSED_STORAGE_KEY)
+        : null;
+    if (!raw) {
+      return false;
+    }
+
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed === true;
+  } catch {
+    return false;
+  }
+}
+
 export default function App() {
   const [summary, setSummary] = useState<DailySummaryResponse | null>(null);
+  const [rollingSummary, setRollingSummary] = useState<RollingDailySummariesResponse | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => loadChatHistory());
+  const [entriesCollapsed, setEntriesCollapsed] = useState<boolean>(() => loadEntriesCollapsed());
   const [loading, setLoading] = useState(true);
   const [chatSending, setChatSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,17 +112,29 @@ export default function App() {
   const [armedDeleteEntryId, setArmedDeleteEntryId] = useState<string | null>(null);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
 
-  async function loadTodaySummary() {
+  async function loadDashboardData() {
     setLoading(true);
 
     try {
-      const response = await fetch("/days/today");
-      if (!response.ok) {
-        throw new Error(`Failed to fetch summary (${response.status})`);
+      const todayResponse = await fetch("/days/today");
+      if (!todayResponse.ok) {
+        throw new Error(`Failed to fetch summary (${todayResponse.status})`);
       }
 
-      const data = (await response.json()) as DailySummaryResponse;
-      setSummary(data);
+      const today = (await todayResponse.json()) as DailySummaryResponse;
+      const rollingResponse = await fetch(
+        `/days/rolling?days=7&anchor=${encodeURIComponent(today.day)}`,
+      );
+      if (!rollingResponse.ok) {
+        throw new Error(`Failed to fetch rolling summary (${rollingResponse.status})`);
+      }
+
+      const rolling = (await rollingResponse.json()) as RollingDailySummariesResponse;
+      const latestSummary = rolling.summaries[rolling.summaries.length - 1] ?? today;
+
+      setSummary(latestSummary);
+      setRollingSummary(rolling);
+      setError(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error";
       setError(message);
@@ -105,7 +144,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    void loadTodaySummary();
+    void loadDashboardData();
   }, []);
 
   useEffect(() => {
@@ -116,6 +155,13 @@ export default function App() {
 
     window.localStorage.setItem(CHAT_HISTORY_STORAGE_KEY, JSON.stringify(chatMessages));
   }, [chatMessages]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      ENTRIES_COLLAPSED_STORAGE_KEY,
+      JSON.stringify(entriesCollapsed),
+    );
+  }, [entriesCollapsed]);
 
   useEffect(() => {
     if (!armedDeleteEntryId) {
@@ -176,7 +222,7 @@ export default function App() {
       const chatMessage = err instanceof Error ? err.message : "Unexpected error";
       setChatError(chatMessage);
     } finally {
-      await loadTodaySummary();
+      await loadDashboardData();
       setChatSending(false);
     }
   }
@@ -201,7 +247,7 @@ export default function App() {
       }
 
       setArmedDeleteEntryId(null);
-      await loadTodaySummary();
+      await loadDashboardData();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error";
       setError(message);
@@ -241,6 +287,24 @@ export default function App() {
   const hasChatHistory = chatMessages.length > 0;
   const latestChatMessage = hasChatHistory ? chatMessages[chatMessages.length - 1] : null;
   const isDeletePending = deletingEntryId !== null;
+  const dayLabelFormatter =
+    summary?.timezone
+      ? new Intl.DateTimeFormat(undefined, {
+          weekday: "short",
+          timeZone: summary.timezone,
+        })
+      : null;
+  const chartPoints = (rollingSummary?.summaries ?? []).map((daySummary) => {
+    const chartDate = new Date(`${daySummary.day}T12:00:00Z`);
+    const label = dayLabelFormatter ? dayLabelFormatter.format(chartDate) : daySummary.day;
+
+    return {
+      day: daySummary.day,
+      consumed: daySummary.consumed_calories,
+      label,
+    };
+  });
+  const todayDay = summary?.day ?? "";
 
   return (
     <main className="page">
@@ -335,42 +399,83 @@ export default function App() {
             </section>
 
             <section className="panel">
-              <h2>Entries</h2>
-              {summary.entries.length > 0 ? (
-                <ul className="entries">
-                  {summary.entries.map((entry) => (
-                    <li key={entry.id}>
-                      <div className="entry-meta">
-                        <div className="entry-head">
-                          <p className="entry-note">{entry.note}</p>
-                          <p className="entry-time">
-                            {new Date(entry.consumed_at).toLocaleTimeString(undefined, {
-                              hour: "numeric",
-                              minute: "2-digit",
-                            })}
-                          </p>
+              <div className="panel-header">
+                <h2>Entries</h2>
+                <button
+                  type="button"
+                  className="panel-toggle"
+                  aria-expanded={!entriesCollapsed}
+                  aria-controls="entries-list"
+                  onClick={() => setEntriesCollapsed((prev) => !prev)}
+                >
+                  {entriesCollapsed ? "Expand" : "Collapse"}
+                </button>
+              </div>
+              {!entriesCollapsed ? (
+                <div id="entries-list">
+                  {summary.entries.length > 0 ? (
+                    <ul className="entries">
+                      {summary.entries.map((entry) => (
+                        <li key={entry.id}>
+                          <div className="entry-meta">
+                            <div className="entry-head">
+                              <p className="entry-note">{entry.note}</p>
+                              <p className="entry-time">
+                                {new Date(entry.consumed_at).toLocaleTimeString(undefined, {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            </div>
+                            <p className="entry-calories">{entry.calories} calories</p>
+                          </div>
+                          <div className="entry-actions" data-delete-actions-entry-id={entry.id}>
+                            <button
+                              type="button"
+                              className={
+                                armedDeleteEntryId === entry.id ? "danger-confirm" : "danger-soft"
+                              }
+                              onClick={() => void handleDeleteClick(entry.id)}
+                              disabled={isDeletePending}
+                            >
+                              {deletingEntryId === entry.id
+                                ? "Deleting..."
+                                : armedDeleteEntryId === entry.id
+                                  ? "Confirm delete"
+                                  : "Delete"}
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="muted">No entries yet.</p>
+                  )}
+                </div>
+              ) : null}
+            </section>
+
+            <section className="panel">
+              <h2>7-Day Calories</h2>
+              {chartPoints.length > 0 ? (
+                <ul className="calorie-chart">
+                  {chartPoints.map((point) => {
+                    const heightPercent = Math.min(
+                      (point.consumed / CHART_CALORIE_BASELINE) * 100,
+                      100,
+                    );
+                    const isToday = point.day === todayDay;
+
+                    return (
+                      <li key={point.day} className={isToday ? "chart-item chart-item-today" : "chart-item"}>
+                        <p className="chart-value">{point.consumed.toLocaleString()}</p>
+                        <div className="chart-track" aria-hidden="true">
+                          <div className="chart-fill" style={{ height: `${heightPercent}%` }} />
                         </div>
-                        <p className="entry-calories">{entry.calories} calories</p>
-                      </div>
-                      <div
-                        className="entry-actions"
-                        data-delete-actions-entry-id={entry.id}
-                      >
-                        <button
-                          type="button"
-                          className={armedDeleteEntryId === entry.id ? "danger-confirm" : "danger-soft"}
-                          onClick={() => void handleDeleteClick(entry.id)}
-                          disabled={isDeletePending}
-                        >
-                          {deletingEntryId === entry.id
-                            ? "Deleting..."
-                            : armedDeleteEntryId === entry.id
-                              ? "Confirm delete"
-                              : "Delete"}
-                        </button>
-                      </div>
-                    </li>
-                  ))}
+                        <p className="chart-label">{point.label}</p>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : null}
             </section>
