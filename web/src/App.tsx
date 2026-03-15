@@ -317,6 +317,45 @@ export default function App() {
         ) : (
           <>
             <section className="panel">
+              <h2>Today</h2>
+              <p className="today-date-badge">{formattedDay}</p>
+              <div className="progress-container">
+                <div
+                  className="progress-track"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={budgetCalories}
+                  aria-valuenow={progressNow}
+                  aria-label="Calories consumed toward daily budget"
+                >
+                  <div className="progress-fill" style={{ width: `${basePercent}%` }} />
+                </div>
+                {showOverflowTrack ? (
+                  <div className="progress-track progress-track-warning" aria-hidden="true">
+                    <div
+                      className="progress-fill progress-fill-warning"
+                      style={{ width: `${overflowPercent}%` }}
+                    />
+                  </div>
+                ) : null}
+              </div>
+              <div className="today-metrics">
+                <article className="metric-tile metric-budget">
+                  <p className="metric-label">Budget</p>
+                  <p className="metric-value">{budgetDisplay}</p>
+                </article>
+                <article className="metric-tile metric-consumed">
+                  <p className="metric-label">Consumed</p>
+                  <p className="metric-value">{consumedDisplay}</p>
+                </article>
+                <article className="metric-tile metric-remaining">
+                  <p className="metric-label">Remaining</p>
+                  <p className="metric-value">{remainingDisplay}</p>
+                </article>
+              </div>
+            </section>
+
+            <section className="panel">
               <div className="chat-header">
                 <h2>Chat</h2>
                 {hasChatHistory ? (
@@ -361,56 +400,21 @@ export default function App() {
             </section>
 
             <section className="panel">
-              <h2>Today</h2>
-              <p className="today-date-badge">{formattedDay}</p>
-              <div className="progress-container">
-                <div
-                  className="progress-track"
-                  role="progressbar"
-                  aria-valuemin={0}
-                  aria-valuemax={budgetCalories}
-                  aria-valuenow={progressNow}
-                  aria-label="Calories consumed toward daily budget"
-                >
-                  <div className="progress-fill" style={{ width: `${basePercent}%` }} />
-                </div>
-                {showOverflowTrack ? (
-                  <div className="progress-track progress-track-warning" aria-hidden="true">
-                    <div
-                      className="progress-fill progress-fill-warning"
-                      style={{ width: `${overflowPercent}%` }}
-                    />
-                  </div>
-                ) : null}
-              </div>
-              <div className="today-metrics">
-                <article className="metric-tile metric-budget">
-                  <p className="metric-label">Budget</p>
-                  <p className="metric-value">{budgetDisplay}</p>
-                </article>
-                <article className="metric-tile metric-consumed">
-                  <p className="metric-label">Consumed</p>
-                  <p className="metric-value">{consumedDisplay}</p>
-                </article>
-                <article className="metric-tile metric-remaining">
-                  <p className="metric-label">Remaining</p>
-                  <p className="metric-value">{remainingDisplay}</p>
-                </article>
-              </div>
-            </section>
-
-            <section className="panel">
               <div className="panel-header">
                 <h2>Entries</h2>
-                <button
-                  type="button"
-                  className="panel-toggle"
-                  aria-expanded={!entriesCollapsed}
-                  aria-controls="entries-list"
-                  onClick={() => setEntriesCollapsed((prev) => !prev)}
-                >
-                  {entriesCollapsed ? "Expand" : "Collapse"}
-                </button>
+                <div className="entries-header-controls">
+                  <span className="history-badge entries-count-badge">{summary.entries.length}</span>
+                  <button
+                    type="button"
+                    className="panel-toggle"
+                    aria-label={entriesCollapsed ? "Expand entries" : "Collapse entries"}
+                    aria-expanded={!entriesCollapsed}
+                    aria-controls="entries-list"
+                    onClick={() => setEntriesCollapsed((prev) => !prev)}
+                  >
+                    {entriesCollapsed ? "▾" : "▴"}
+                  </button>
+                </div>
               </div>
               {!entriesCollapsed ? (
                 <div id="entries-list">
