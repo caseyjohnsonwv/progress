@@ -350,6 +350,7 @@ export default function App() {
                   </button>
                   <button
                     type="button"
+                    className="secondary"
                     onClick={handleClearChat}
                     disabled={chatSending || !hasChatHistory}
                   >
