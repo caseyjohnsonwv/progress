@@ -362,18 +362,18 @@ export default function App() {
                   <span className="history-badge">History: {chatMessages.length}</span>
                 ) : null}
               </div>
-              <div className="chat-line" aria-live="polite">
-                {latestChatMessage ? (
-                  <>
+              {latestChatMessage ? (
+                <div className="chat-line" aria-live="polite">
+                  <div className="chat-message">
                     <span className={`chat-role ${latestChatMessage.role}`}>
                       {latestChatMessage.role.toUpperCase()}
                     </span>
                     <span className="chat-text">{latestChatMessage.text}</span>
-                  </>
-                ) : (
-                  <span className="chat-text muted">No chat history yet.</span>
-                )}
-              </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="chat-helper muted">Ask to log, edit, or delete calories.</p>
+              )}
 
               <form onSubmit={(event) => void handleChatSubmit(event)} className="chat-form">
                 <input

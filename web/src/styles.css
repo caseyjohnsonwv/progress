@@ -307,15 +307,20 @@ button.danger-confirm {
 }
 
 .chat-line {
-  min-height: var(--control-min-height);
   width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-strong);
   padding: 0.72rem;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.62rem;
+}
+
+.chat-message {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.chat-helper {
+  margin: 0;
 }
 
 .chat-role {
@@ -327,7 +332,7 @@ button.danger-confirm {
   font-weight: 700;
   letter-spacing: 0.04em;
   line-height: 1;
-  margin-top: 0.08rem;
+  width: fit-content;
 }
 
 .chat-role.user {
@@ -341,6 +346,7 @@ button.danger-confirm {
 }
 
 .chat-text {
+  width: 100%;
   min-width: 0;
   white-space: normal;
   overflow-wrap: anywhere;
