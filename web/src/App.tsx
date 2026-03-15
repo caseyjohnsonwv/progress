@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useState } from "react";
 
 type CalorieEntry = {
   id: string;
@@ -97,6 +97,151 @@ function loadEntriesCollapsed(): boolean {
   } catch {
     return false;
   }
+}
+
+function renderInlineMarkdown(text: string): ReactNode[] {
+  const tokenPattern =
+    /(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|`([^`]+)`|\*\*([^*]+)\*\*|\*([^*]+)\*)/g;
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+  let tokenIndex = 0;
+
+  for (const match of text.matchAll(tokenPattern)) {
+    const fullMatch = match[0];
+    const index = match.index ?? 0;
+
+    if (index > cursor) {
+      nodes.push(text.slice(cursor, index));
+    }
+
+    const linkText = match[2];
+    const linkUrl = match[3];
+    const inlineCode = match[4];
+    const bold = match[5];
+    const italic = match[6];
+
+    if (linkText && linkUrl) {
+      nodes.push(
+        <a key={`md-link-${tokenIndex}`} href={linkUrl} target="_blank" rel="noreferrer">
+          {linkText}
+        </a>,
+      );
+    } else if (inlineCode) {
+      nodes.push(<code key={`md-code-${tokenIndex}`}>{inlineCode}</code>);
+    } else if (bold) {
+      nodes.push(<strong key={`md-strong-${tokenIndex}`}>{bold}</strong>);
+    } else if (italic) {
+      nodes.push(<em key={`md-em-${tokenIndex}`}>{italic}</em>);
+    } else {
+      nodes.push(fullMatch);
+    }
+
+    cursor = index + fullMatch.length;
+    tokenIndex += 1;
+  }
+
+  if (cursor < text.length) {
+    nodes.push(text.slice(cursor));
+  }
+
+  return nodes;
+}
+
+function renderMarkdown(text: string): ReactNode[] {
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const nodes: ReactNode[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      i += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith("```")) {
+      const codeLines: string[] = [];
+      i += 1;
+      while (i < lines.length && !lines[i].trim().startsWith("```")) {
+        codeLines.push(lines[i]);
+        i += 1;
+      }
+      if (i < lines.length) {
+        i += 1;
+      }
+      nodes.push(
+        <pre key={`md-pre-${i}`}>
+          <code>{codeLines.join("\n")}</code>
+        </pre>,
+      );
+      continue;
+    }
+
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const content = headingMatch[2];
+      const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
+      nodes.push(<HeadingTag key={`md-h-${i}`}>{renderInlineMarkdown(content)}</HeadingTag>);
+      i += 1;
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(line)) {
+      const items: ReactNode[] = [];
+      while (i < lines.length && /^[-*]\s+/.test(lines[i])) {
+        const itemText = lines[i].replace(/^[-*]\s+/, "");
+        items.push(<li key={`md-ul-item-${i}`}>{renderInlineMarkdown(itemText)}</li>);
+        i += 1;
+      }
+      nodes.push(
+        <ul key={`md-ul-${i}`}>
+          {items}
+        </ul>,
+      );
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(line)) {
+      const items: ReactNode[] = [];
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
+        const itemText = lines[i].replace(/^\d+\.\s+/, "");
+        items.push(<li key={`md-ol-item-${i}`}>{renderInlineMarkdown(itemText)}</li>);
+        i += 1;
+      }
+      nodes.push(
+        <ol key={`md-ol-${i}`}>
+          {items}
+        </ol>,
+      );
+      continue;
+    }
+
+    const paragraphLines: string[] = [];
+    while (i < lines.length) {
+      const paragraphLine = lines[i];
+      const paragraphTrimmed = paragraphLine.trim();
+      if (!paragraphTrimmed) {
+        i += 1;
+        break;
+      }
+      if (
+        paragraphTrimmed.startsWith("```") ||
+        /^(#{1,6})\s+(.+)$/.test(paragraphLine) ||
+        /^[-*]\s+/.test(paragraphLine) ||
+        /^\d+\.\s+/.test(paragraphLine)
+      ) {
+        break;
+      }
+      paragraphLines.push(paragraphLine);
+      i += 1;
+    }
+    nodes.push(<p key={`md-p-${i}`}>{renderInlineMarkdown(paragraphLines.join(" "))}</p>);
+  }
+
+  return nodes;
 }
 
 export default function App() {
@@ -443,7 +588,11 @@ export default function App() {
                     <span className={`chat-role ${latestChatMessage.role}`}>
                       {latestChatMessage.role.toUpperCase()}
                     </span>
-                    <span className="chat-text">{latestChatMessage.text}</span>
+                    {latestChatMessage.role === "assistant" ? (
+                      <div className="chat-text markdown-text">{renderMarkdown(latestChatMessage.text)}</div>
+                    ) : (
+                      <span className="chat-text">{latestChatMessage.text}</span>
+                    )}
                   </div>
                 </div>
               ) : (

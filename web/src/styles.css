@@ -374,6 +374,65 @@ button.danger-confirm {
   color: var(--text-1);
 }
 
+.markdown-text p,
+.markdown-text ul,
+.markdown-text ol,
+.markdown-text pre,
+.markdown-text h1,
+.markdown-text h2,
+.markdown-text h3,
+.markdown-text h4,
+.markdown-text h5,
+.markdown-text h6 {
+  margin: 0;
+}
+
+.markdown-text p + p,
+.markdown-text p + ul,
+.markdown-text p + ol,
+.markdown-text p + pre,
+.markdown-text ul + p,
+.markdown-text ol + p,
+.markdown-text pre + p,
+.markdown-text h1 + p,
+.markdown-text h2 + p,
+.markdown-text h3 + p,
+.markdown-text h4 + p,
+.markdown-text h5 + p,
+.markdown-text h6 + p {
+  margin-top: 0.45rem;
+}
+
+.markdown-text ul,
+.markdown-text ol {
+  padding-left: 1.2rem;
+}
+
+.markdown-text a {
+  color: #0f766e;
+}
+
+.markdown-text code {
+  font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
+  font-size: 0.92em;
+  background: rgba(15, 23, 42, 0.08);
+  border-radius: 4px;
+  padding: 0.08rem 0.28rem;
+}
+
+.markdown-text pre {
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.08);
+  overflow-x: auto;
+}
+
+.markdown-text pre code {
+  background: transparent;
+  padding: 0;
+}
+
 .chat-form {
   display: grid;
   grid-template-columns: 1fr;

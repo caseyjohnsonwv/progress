@@ -31,7 +31,8 @@ const systemPrompt =
   "Historical entries are read-only for edit/delete. " +
   "Never invent ids. If unsure, ask a concise clarification question and do not delete. " +
   "When calling add_entry, always format note in Professional Title Case. " +
-  "Do not suggest next actions or next steps in your reply.";
+  "Do not suggest next actions or next steps in your reply. " +
+  "Use Markdown formatting in your reply. Do not use HTML.";
 
 const chatTools = [
   {
